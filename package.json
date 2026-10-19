@@ -4,6 +4,8 @@
   "version": "2.1.0",
   "type": "module",
   "description": "把 GPX / FIT 或行者记录变成一张路线总和图",
+  "license": "MIT",
+  "author": "L1tton",
   "engines": {
     "node": ">=20.3"
   },

@@ -303,6 +303,10 @@ GPX / FIT 导入不改名字；直接点左上角改名即可。行者同步会�
 
 ## 致谢与许可
 
+本项目源代码采用 **MIT License**，Copyright © 2026 L1tton。完整许可见 [LICENSE](LICENSE)。
+
+第三方组件与地图数据许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
 - 地图渲染：[MapLibre GL JS](https://maplibre.org/) 4.7.1，BSD-3-Clause，许可证见 `web/assets/vendor/LICENSE.txt`
 - FIT 解析：[fit-file-parser](https://github.com/jimmykane/fit-parser) 6.2.2，MIT，许可证见 `web/assets/vendor/fit-parser.LICENSE.txt`
 - 底图：浅色/深色与道路 © OpenStreetMap contributors / OpenFreeMap；卫星影像 © 高德地图；地形 © 天地图
