@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>隐私说明 · 路线总和图</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='10' fill='%23d81e06'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body class="legal-page">
+    <main class="legal">
+      <p class="eyebrow"><span class="dot"></span>路线总和图</p>
+      <h1>隐私说明</h1>
+      <p class="legal-updated">最后更新：2026-10-19</p>
+
+      <h2>你的轨迹数据</h2>
+      <p>
+        通过 GPX 导入或行者同步得到的轨迹，只保存在你当前浏览器的 IndexedDB 中，不会上传到本站服务器，
+        也不会被本站用于统计或分析。点击地图面板里的“清空”会删除这份本地数据。
+      </p>
+      <p>
+        地图名称保存在浏览器的 localStorage 中，仅用于显示和导出标题。
+      </p>
+
+      <h2>行者同步</h2>
+      <p>
+        行者官方 API 不提供轨迹点，因此同步功能需要你粘贴一次行者网页版的登录 Cookie。
+        这份 Cookie 只会随同步请求发送到本站服务器，在内存中用于读取你本人账号的运动列表和 GPX，
+        请求结束立即丢弃；本站不把它写入数据库、日志或文件。
+      </p>
+      <p>
+        同步得到的轨迹会通过加密连接返回给你的浏览器，然后只保存在浏览器本地。
+        服务器日志只记录请求时间、IP、耗时和轨迹数量，用于限流和排查故障，不记录 Cookie、账号名或轨迹内容。
+      </p>
+      <p class="legal-warning">
+        请只在你信任的站点上粘贴 Cookie。Cookie 等同于登录凭证；如果你不放心，可以只使用 GPX 导入。
+      </p>
+
+      <h2>第三方服务</h2>
+      <p>
+        卫星影像由高德地图提供；浅色/深色底图与道路矢量由 OpenFreeMap 提供；地形底图由天地图提供、道路矢量由 OpenFreeMap 提供。加载这些资源时，相应服务会收到你的 IP 和浏览器信息。
+        同步时本站服务器会访问行者（imxingzhe.com）的接口。它们各自遵循自己的隐私政策。
+      </p>
+
+      <h2>数据保留与删除</h2>
+      <p>
+        本站没有账号系统，也不在服务器上保存访客数据。清理浏览器站点数据即可删除本地轨迹和名称。
+        同步请求的 IP 限流记录只保存在服务器内存中，服务重启后清空。
+      </p>
+
+      <h2>联系</h2>
+      <p>如果这个页面由个人部署，请把这里替换成站点维护者的联系方式。</p>
+
+      <p class="legal-back"><a href="/">← 返回地图</a></p>
+    </main>
+  </body>
+</html>

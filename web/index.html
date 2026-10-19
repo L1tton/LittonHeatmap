@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f3efe7" />
+    <title>路线总和图</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='10' fill='%23d81e06'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="assets/vendor/maplibre-gl.css" />
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body>
+    <div id="map" aria-label="运动轨迹地图"></div>
+
+    <aside class="panel" id="panel">
+      <div class="panel-head">
+        <div class="panel-title">
+          <div class="eyebrow"><span class="dot"></span>路线总和图</div>
+          <input
+            id="nameInput"
+            class="name-input"
+            value="我的轨迹"
+            maxlength="24"
+            aria-label="地图名称"
+            title="点击修改名称"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <p class="range" id="rangeText">导入 GPX / FIT 或同步行者，开始生成</p>
+        </div>
+        <button
+          class="panel-toggle"
+          id="panelToggle"
+          aria-expanded="true"
+          aria-controls="panelBody"
+          aria-label="收起控制面板"
+        >
+          −
+        </button>
+      </div>
+
+      <div class="panel-body" id="panelBody">
+        <div class="stats">
+          <div class="stat"><strong id="statCount">—</strong><span>记录</span></div>
+          <div class="stat"><strong id="statDistance">—</strong><span>公里</span></div>
+          <div class="stat"><strong id="statYears">—</strong><span>年份</span></div>
+        </div>
+
+        <div class="control" id="yearControl" hidden>
+          <label class="label" for="yearSelect">年份</label>
+          <div class="select-wrap">
+            <select id="yearSelect">
+              <option value="all">全部年份</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="control">
+          <span class="label">底图</span>
+          <div class="base-grid" id="baseButtons" role="group" aria-label="切换底图">
+            <button type="button" class="base-btn is-active" data-base="dark" aria-pressed="true">深色</button>
+            <button type="button" class="base-btn" data-base="light" aria-pressed="false">浅色</button>
+            <button type="button" class="base-btn" data-base="satellite" aria-pressed="false">卫星</button>
+            <button type="button" class="base-btn" data-base="terrain" aria-pressed="false" hidden>地形</button>
+            <button type="button" class="base-btn" data-base="none" aria-pressed="false">无底图</button>
+          </div>
+          <label class="check-row label-toggle" id="labelToggle" hidden>
+            <input type="checkbox" id="showLabels" />
+            <span>显示地名</span>
+          </label>
+        </div>
+
+        <div class="control" id="roadDensityControl" hidden>
+          <div class="label-row">
+            <label class="label" for="roadDensity">路网密度</label>
+            <span class="value" id="roadDensityValue">100%</span>
+          </div>
+          <input id="roadDensity" type="range" min="0" max="100" step="5" value="100" />
+          <div class="range-hint"><span>0 隐藏</span><span>100 全部</span></div>
+        </div>
+
+        <div class="control" id="roadOpacityControl" hidden>
+          <div class="label-row">
+            <label class="label" for="roadOpacity">路网透明度</label>
+            <span class="value" id="roadOpacityValue">92%</span>
+          </div>
+          <input id="roadOpacity" type="range" min="0" max="100" step="1" value="92" />
+          <div class="range-hint"><span>0 透明</span><span>100 不透明</span></div>
+        </div>
+
+        <div class="control">
+          <div class="label-row">
+            <span class="label">路径颜色</span>
+            <span class="value">明度固定</span>
+          </div>
+          <div class="color-palette" id="colorPalette" role="group" aria-label="路径颜色">
+            <button type="button" class="color-swatch is-active" data-color="#d81e06" style="--swatch: #d81e06" aria-label="红色" aria-pressed="true"></button>
+            <button type="button" class="color-swatch" data-color="#cc7319" style="--swatch: #cc7319" aria-label="橙色" aria-pressed="false"></button>
+            <button type="button" class="color-swatch" data-color="#ccae19" style="--swatch: #ccae19" aria-label="金色" aria-pressed="false"></button>
+            <button type="button" class="color-swatch" data-color="#19ccbd" style="--swatch: #19ccbd" aria-label="青色" aria-pressed="false"></button>
+            <button type="button" class="color-swatch" data-color="#1964cc" style="--swatch: #1964cc" aria-label="蓝色" aria-pressed="false"></button>
+            <button type="button" class="color-swatch" data-color="#3719cc" style="--swatch: #3719cc" aria-label="靛色" aria-pressed="false"></button>
+            <button type="button" class="color-swatch" data-color="#a019cc" style="--swatch: #a019cc" aria-label="紫色" aria-pressed="false"></button>
+            <button type="button" class="color-swatch" data-color="#cc1982" style="--swatch: #cc1982" aria-label="品红" aria-pressed="false"></button>
+          </div>
+        </div>
+
+        <div class="control">
+          <div class="label-row">
+            <label class="label" for="opacity">轨迹浓度</label>
+            <span class="value" id="opacityValue">55%</span>
+          </div>
+          <input id="opacity" type="range" min="8" max="60" step="1" value="55" />
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn primary" id="exportBtn" disabled>导出图片</button>
+          <button type="button" class="btn ghost" id="fitBtn" disabled>全览</button>
+        </div>
+
+        <div class="data-actions">
+          <button type="button" class="link-btn" id="importBtn">导入 GPX / FIT</button>
+          <button type="button" class="link-btn" id="syncBtn">同步行者</button>
+          <button type="button" class="link-btn danger" id="clearBtn" hidden>清空</button>
+        </div>
+
+        <p class="hint">点击轨迹查看记录 · 滚轮或双指缩放</p>
+        <p class="updated" id="updatedText"></p>
+      </div>
+    </aside>
+
+    <section class="onboarding" id="onboarding">
+      <div class="onboarding-card">
+        <div class="eyebrow"><span class="dot"></span>所有路线，一张图</div>
+        <h2>把你的所有路线<br />画成一张图</h2>
+        <p class="onboarding-sub">导入 GPX / FIT 文件，或同步行者账号。数据只保存在你的浏览器里。</p>
+        <div class="onboarding-actions">
+          <button type="button" class="btn primary" id="onboardImport">导入 GPX / FIT</button>
+          <button type="button" class="btn ghost" id="onboardSync">同步行者</button>
+        </div>
+        <button type="button" class="example-link" id="onboardExample">先看看 L1tton 的示例</button>
+        <p class="privacy-note">
+          同步只读取你登录账号自己的记录；Cookie 仅用于本次请求，抓取完成立即丢弃，不保存轨迹或账号信息。
+          <a href="privacy.html" target="_blank" rel="noopener">隐私说明</a>
+        </p>
+      </div>
+    </section>
+
+    <div class="legend" aria-hidden="true">
+      <div class="legend-bar"></div>
+      <span>线条越亮，经过次数越多</span>
+    </div>
+
+    <div class="attribution" id="attribution">轨迹 © 行者 · 底图 © 高德地图</div>
+
+    <div class="drop-overlay" id="dropOverlay" hidden>
+      <div class="drop-card">松开鼠标，导入 GPX 文件</div>
+    </div>
+
+    <input id="gpxInput" type="file" accept=".gpx,.fit,application/gpx+xml" multiple hidden />
+
+    <div class="loading" id="loading" role="status" aria-live="polite">
+      <div class="loading-card">
+        <div class="spinner" id="spinner"></div>
+        <p class="loading-text" id="loadingText">正在加载…</p>
+        <p class="loading-sub" id="loadingSub">数据只在本机处理</p>
+      </div>
+    </div>
+
+    <!-- 导出 -->
+    <div class="modal-backdrop" id="exportModal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
+        <div class="modal-head">
+          <h2 id="exportTitle">导出图片</h2>
+          <button type="button" class="icon-btn" id="exportClose" aria-label="关闭">×</button>
+        </div>
+        <div class="field">
+          <span class="label">范围</span>
+          <div class="scope-grid" id="exportScope">
+            <label class="scope-option">
+              <input type="radio" name="exportScope" value="all" checked />
+              <span>全部轨迹<em>当前筛选</em></span>
+            </label>
+            <label class="scope-option">
+              <input type="radio" name="exportScope" value="view" />
+              <span>当前视图<em>所见即所得</em></span>
+            </label>
+          </div>
+        </div>
+        <label class="check-row">
+          <input type="checkbox" id="exportHeader" checked />
+          <span>包含标题与统计</span>
+        </label>
+        <p class="modal-note">全部轨迹约 4800px 宽；当前视图按 2× 分辨率重新渲染。生成需要几秒。</p>
+        <div class="modal-actions">
+          <button type="button" class="btn ghost" id="exportCancel">取消</button>
+          <button type="button" class="btn primary" id="exportConfirm">导出 PNG</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 同步行者 -->
+    <div class="modal-backdrop" id="syncModal" hidden>
+      <div class="modal sync-modal" role="dialog" aria-modal="true" aria-labelledby="syncTitle">
+        <div class="modal-head">
+          <h2 id="syncTitle">同步行者</h2>
+          <button type="button" class="icon-btn" id="syncClose" aria-label="关闭">×</button>
+        </div>
+
+        <div id="syncIntro">
+          <div class="risk-box">
+            <strong>同步前请先了解风险</strong>
+            <ul>
+              <li>Cookie 等同于行者登录凭证。只在这个你信任的站点使用，不要发给别人或截图。</li>
+              <li>同步只读取你账号自己的运动列表和 GPX，不会修改、删除或上传任何行者数据。</li>
+              <li>行者可能因请求较多而临时限流。请从小范围开始；失败后等 15–30 分钟，不要连续重试。</li>
+              <li>如果担心风险，可以直接用 GPX / FIT 导入，不需要 Cookie。</li>
+            </ul>
+          </div>
+
+          <div class="field">
+            <span class="label">同步范围</span>
+            <div class="sync-range" id="syncRange">
+              <label class="scope-option">
+                <input type="radio" name="syncRange" value="1y" checked />
+                <span>最近 1 年<em>推荐 · 12 个月</em></span>
+              </label>
+              <label class="scope-option">
+                <input type="radio" name="syncRange" value="3y" />
+                <span>最近 3 年<em>36 个月</em></span>
+              </label>
+              <label class="scope-option">
+                <input type="radio" name="syncRange" value="all" />
+                <span>全部历史<em>2012 起，较慢</em></span>
+              </label>
+            </div>
+            <p class="modal-note">范围越大，请求越多，越容易触发行者限流。不确定时先选最近 1 年。</p>
+          </div>
+
+          <details class="tutorial">
+            <summary>如何复制 Cookie（点击展开详细步骤）</summary>
+            <ol class="steps">
+              <li>在浏览器里登录 <a href="https://www.imxingzhe.com/login" target="_blank" rel="noreferrer">行者网页版</a>，确认能看到自己的运动记录。</li>
+              <li>按 <code>F12</code>（或 Ctrl+Shift+I）打开开发者工具，切到 <code>Network</code> 面板。</li>
+              <li>按 <code>Ctrl+R</code> 刷新页面，在过滤框输入 <code>www.imxingzhe.com</code>。</li>
+              <li>点任意一条域名是 <code>www.imxingzhe.com</code> 的请求，例如 <code>get_user_info</code> 或最上面的文档请求。</li>
+              <li>在右侧 <code>Headers</code> → <code>Request Headers</code> 找到 <code>Cookie</code>，复制冒号后的完整内容。</li>
+              <li>如果看不到 Cookie：右键该请求 → <code>Copy</code> → <code>Copy as cURL</code>，粘贴到记事本，复制 <code>Cookie:</code> 后面那一整段。</li>
+              <li>确认内容里包含 <code>sessionid=</code>，再粘贴到下方输入框。</li>
+            </ol>
+            <p class="modal-note">只复制 Cookie 的值，不要复制 <code>Cookie:</code> 这几个字；不要发到聊天或截图里。</p>
+          </details>
+
+          <textarea
+            id="cookieInput"
+            class="cookie-input"
+            rows="4"
+            placeholder="sessionid=...; csrftoken=...; ..."
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+          ></textarea>
+          <label class="check-row consent">
+            <input type="checkbox" id="syncConsent" />
+            <span>我已知晓 Cookie 是登录凭证，只在本站本次同步使用；如担心风险，我会改用 GPX / FIT 导入。</span>
+          </label>
+          <p class="modal-note">
+            服务端只读取当前登录账号自己的记录，请求结束立即丢弃 Cookie；不写日志、不存数据库。
+            合并记录会自动跳过，避免重复。建议在 HTTPS 下使用。
+            <a href="privacy.html" target="_blank" rel="noopener">隐私说明</a>
+          </p>
+          <div class="modal-actions sync-actions">
+            <button type="button" class="link-btn" id="syncImportAlt">改用 GPX / FIT 导入</button>
+            <button type="button" class="btn ghost" id="syncCancel">取消</button>
+            <button type="button" class="btn primary" id="syncStart" disabled>开始同步</button>
+          </div>
+        </div>
+
+        <div id="syncProgress" hidden>
+          <p class="sync-status" id="syncStatus">准备中…</p>
+          <div class="progress"><div class="progress-bar" id="syncBar"></div></div>
+          <pre class="sync-log" id="syncLog"></pre>
+          <div class="modal-actions">
+            <button type="button" class="btn ghost" id="syncStop">取消同步</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 导入进度 -->
+    <div class="modal-backdrop" id="importModal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+        <div class="modal-head">
+          <h2 id="importTitle">导入 GPX / FIT</h2>
+        </div>
+        <p class="sync-status" id="importStatus">准备中…</p>
+        <div class="progress"><div class="progress-bar" id="importBar"></div></div>
+        <pre class="sync-log" id="importLog"></pre>
+        <div class="modal-actions">
+          <button type="button" class="btn ghost" id="importClose">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" hidden></div>
+
+    <noscript>
+      <div class="noscript">需要启用 JavaScript 才能查看地图。</div>
+    </noscript>
+
+    <script src="assets/vendor/maplibre-gl.js"></script>
+    <script src="assets/app.js" type="module"></script>
+  </body>
+</html>

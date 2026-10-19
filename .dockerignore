@@ -1,0 +1,6 @@
+.env
+.cache/
+preview/
+node_modules/
+.git/
+*.log

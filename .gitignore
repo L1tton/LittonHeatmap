@@ -1,0 +1,10 @@
+.cache/
+node_modules/
+.env
+.env.*
+!.env.example
+web/data/tracks-*.json
+web/data/manifest.json
+preview/
+*.log
+*.tar.gz

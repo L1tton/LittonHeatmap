@@ -1,0 +1,22 @@
+{
+  "name": "route-atlas",
+  "private": true,
+  "version": "2.1.0",
+  "type": "module",
+  "description": "把 GPX / FIT 或行者记录变成一张路线总和图",
+  "engines": {
+    "node": ">=20.3"
+  },
+  "scripts": {
+    "start": "node serve.mjs",
+    "serve": "node serve.mjs",
+    "login": "node scripts/login.mjs",
+    "fetch": "node scripts/fetch.mjs",
+    "build:fit": "esbuild scripts/fit-entry.js --bundle --format=esm --platform=browser --minify --outfile=web/assets/vendor/fit-parser.js",
+    "test": "node scripts/test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "fit-file-parser": "^6.2.2"
+  }
+}
