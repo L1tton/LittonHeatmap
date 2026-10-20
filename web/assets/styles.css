@@ -1305,7 +1305,15 @@ body.wallpaper-mode:not(.map-interactive) #map {
   display: none !important;
 }
 
-.wallpaper-mode .data-actions,
+.wallpaper-mode .data-actions {
+  display: flex;
+}
+
+.wallpaper-mode .data-actions #syncBtn,
+.wallpaper-mode .data-actions #clearBtn {
+  display: none;
+}
+
 .wallpaper-mode #exportBtn {
   display: none !important;
 }
@@ -1336,6 +1344,46 @@ body.wallpaper-mode:not(.map-interactive) #map {
   opacity: 1;
 }
 
+.wallpaper-zoom {
+  position: fixed;
+  z-index: 28;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(40, 32, 22, 0.1);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.wallpaper-zoom button {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1;
+  place-items: center;
+  cursor: pointer;
+}
+
+.wallpaper-zoom button:last-child {
+  border-bottom: 0;
+}
+
+.wallpaper-zoom button:hover {
+  background: rgba(239, 91, 42, 0.08);
+}
+
+.wallpaper-zoom[hidden] {
+  display: none !important;
+}
+
 .wallpaper-clock {
   position: fixed;
   z-index: 12;
@@ -1349,6 +1397,8 @@ body.wallpaper-mode:not(.map-interactive) #map {
   text-align: center;
   text-transform: uppercase;
   pointer-events: none;
+  cursor: grab;
+  touch-action: none;
   opacity: 0;
   transform: translateY(-50%);
   transition: opacity 0.6s ease;
@@ -1356,6 +1406,11 @@ body.wallpaper-mode:not(.map-interactive) #map {
 
 .wallpaper-clock.is-ready {
   opacity: 1;
+  pointer-events: auto;
+}
+
+.wallpaper-clock.is-dragging {
+  cursor: grabbing;
 }
 
 .clock-time {
