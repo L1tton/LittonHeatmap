@@ -365,6 +365,36 @@ const CLOCK_WEEKDAYS = [
 ];
 let clockTimer = null;
 
+const CLOCK_TILTS = [-5.4, 4.8, -2.7, 6.4, -4.1, 3.6, -6.2, 5.1, -1.9, 4.2, -3.4, 2.8];
+const CLOCK_SKEWS = [-2.8, 2.2, -1.4, 3.1, -2.4, 1.7, -1.1, 2.7];
+const CLOCK_LIFTS = [-0.015, 0.01, 0, -0.02, 0.015, -0.01, 0.02, 0];
+
+function renderTiltedText(el, text, { seed = 0, strength = 1 } = {}) {
+  if (!el || el.dataset.text === text) return;
+  const fragment = document.createDocumentFragment();
+  [...text].forEach((char, index) => {
+    const span = document.createElement('span');
+    span.className = 'tilt-char';
+    span.textContent = char;
+    if (char === ' ') span.classList.add('tilt-space');
+    if (char === ':') {
+      span.style.setProperty('--tilt', '0deg');
+      span.style.setProperty('--skew', '0deg');
+      span.style.setProperty('--lift', '0em');
+    } else if (char !== ' ') {
+      const tilt = CLOCK_TILTS[(index + seed) % CLOCK_TILTS.length] * strength;
+      const skew = CLOCK_SKEWS[(index + seed * 2) % CLOCK_SKEWS.length] * strength;
+      const lift = CLOCK_LIFTS[(index + seed) % CLOCK_LIFTS.length] * strength;
+      span.style.setProperty('--tilt', `${tilt.toFixed(2)}deg`);
+      span.style.setProperty('--skew', `${skew.toFixed(2)}deg`);
+      span.style.setProperty('--lift', `${lift.toFixed(3)}em`);
+    }
+    fragment.appendChild(span);
+  });
+  el.replaceChildren(fragment);
+  el.dataset.text = text;
+}
+
 function updateWallpaperClock() {
   if (!els.clockTime || !els.clockDate || !els.clockWeekday) return;
   const now = new Date();
@@ -373,9 +403,9 @@ function updateWallpaperClock() {
   const time = `${hh}:${mm}`;
   const date = `${CLOCK_MONTHS[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
   const weekday = CLOCK_WEEKDAYS[now.getDay()];
-  if (els.clockTime.textContent !== time) els.clockTime.textContent = time;
-  if (els.clockDate.textContent !== date) els.clockDate.textContent = date;
-  if (els.clockWeekday.textContent !== weekday) els.clockWeekday.textContent = weekday;
+  renderTiltedText(els.clockTime, time, { seed: 2, strength: 1.15 });
+  renderTiltedText(els.clockDate, date, { seed: 5, strength: 0.7 });
+  renderTiltedText(els.clockWeekday, weekday, { seed: 9, strength: 0.85 });
   els.wallpaperClock?.classList.add('is-ready');
 }
 
