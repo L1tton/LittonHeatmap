@@ -256,6 +256,9 @@ const els = {
   panel: $('#panel'),
   panelToggle: $('#panelToggle'),
   panelLauncher: $('#panelLauncher'),
+  wallpaperZoom: $('#wallpaperZoom'),
+  wallpaperZoomIn: $('#wallpaperZoomIn'),
+  wallpaperZoomOut: $('#wallpaperZoomOut'),
   nameInput: $('#nameInput'),
   rangeText: $('#rangeText'),
   statCount: $('#statCount'),
@@ -278,6 +281,7 @@ const els = {
   fitBtn: $('#fitBtn'),
   exportBtn: $('#exportBtn'),
   importBtn: $('#importBtn'),
+  wallpaperResetBtn: $('#wallpaperResetBtn'),
   syncBtn: $('#syncBtn'),
   clearBtn: $('#clearBtn'),
   onboarding: $('#onboarding'),
@@ -380,6 +384,125 @@ function startWallpaperClock() {
     if (!document.hidden) updateWallpaperClock();
   });
 }
+
+const CLOCK_POS_KEY = 'trailmap.wallpaper.clockPos';
+let clockDrag = null;
+
+function applyClockPosition(left, top, { persist = false } = {}) {
+  const margin = 12;
+  const width = els.wallpaperClock.offsetWidth || 420;
+  const height = els.wallpaperClock.offsetHeight || 200;
+  const maxLeft = Math.max(margin, window.innerWidth - width - margin);
+  const maxTop = Math.max(margin, window.innerHeight - height - margin);
+  const x = Math.round(Math.min(Math.max(margin, left), maxLeft));
+  const y = Math.round(Math.min(Math.max(margin, top), maxTop));
+  els.wallpaperClock.style.left = `${x}px`;
+  els.wallpaperClock.style.top = `${y}px`;
+  els.wallpaperClock.style.right = 'auto';
+  els.wallpaperClock.style.bottom = 'auto';
+  els.wallpaperClock.style.transform = 'none';
+  if (persist) {
+    try {
+      localStorage.setItem(CLOCK_POS_KEY, JSON.stringify({ left: x, top: y }));
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function resetClockPosition() {
+  els.wallpaperClock.style.left = '';
+  els.wallpaperClock.style.top = '';
+  els.wallpaperClock.style.right = '';
+  els.wallpaperClock.style.bottom = '';
+  els.wallpaperClock.style.transform = '';
+  try {
+    localStorage.removeItem(CLOCK_POS_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function initClockDrag() {
+  if (!els.wallpaperClock) return;
+  els.wallpaperClock.title = '拖动移动时间，双击复位';
+
+  els.wallpaperClock.addEventListener('pointerdown', (event) => {
+    if (!event.isPrimary || event.button !== 0) return;
+    event.preventDefault();
+    const rect = els.wallpaperClock.getBoundingClientRect();
+    clockDrag = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      left: rect.left,
+      top: rect.top,
+      moved: false,
+    };
+    els.wallpaperClock.classList.add('is-dragging');
+    try {
+      els.wallpaperClock.setPointerCapture(event.pointerId);
+    } catch {
+      /* ignore */
+    }
+
+    const onMove = (moveEvent) => {
+      if (!clockDrag || moveEvent.pointerId !== clockDrag.pointerId) return;
+      const dx = moveEvent.clientX - clockDrag.startX;
+      const dy = moveEvent.clientY - clockDrag.startY;
+      if (!clockDrag.moved && Math.hypot(dx, dy) < 4) return;
+      clockDrag.moved = true;
+      applyClockPosition(clockDrag.left + dx, clockDrag.top + dy, { persist: false });
+    };
+    const finish = (upEvent) => {
+      if (!clockDrag || upEvent.pointerId !== clockDrag.pointerId) return;
+      const wasMoved = clockDrag.moved;
+      clockDrag = null;
+      els.wallpaperClock.classList.remove('is-dragging');
+      try {
+        els.wallpaperClock.releasePointerCapture(upEvent.pointerId);
+      } catch {
+        /* ignore */
+      }
+      els.wallpaperClock.removeEventListener('pointermove', onMove);
+      els.wallpaperClock.removeEventListener('pointerup', finish);
+      els.wallpaperClock.removeEventListener('pointercancel', finish);
+      if (wasMoved) {
+        const finalRect = els.wallpaperClock.getBoundingClientRect();
+        applyClockPosition(finalRect.left, finalRect.top, { persist: true });
+      }
+    };
+    els.wallpaperClock.addEventListener('pointermove', onMove);
+    els.wallpaperClock.addEventListener('pointerup', finish);
+    els.wallpaperClock.addEventListener('pointercancel', finish);
+  });
+
+  els.wallpaperClock.addEventListener('dblclick', resetClockPosition);
+
+  els.wallpaperClock.addEventListener(
+    'wheel',
+    (event) => {
+      if (!state.mapInteractive) return;
+      event.preventDefault();
+      zoomMapBy(event.deltaY < 0 ? 0.35 : -0.35);
+    },
+    { passive: false },
+  );
+}
+
+(function restoreClockPosition() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(CLOCK_POS_KEY) || 'null');
+  } catch {
+    saved = null;
+  }
+  if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
+    applyClockPosition(saved.left, saved.top);
+  }
+})();
+
+initClockDrag();
 
 function fmtInt(value) {
   const n = Number(value) || 0;
@@ -512,9 +635,34 @@ function setMapInteractive(interactive) {
     if (interactive) handler.enable();
     else handler.disable();
   }
+  els.wallpaperZoom.hidden = !interactive;
   const canvas = map.getCanvas();
   if (canvas) canvas.style.cursor = interactive ? '' : 'default';
 }
+
+function zoomMapBy(delta) {
+  if (!state.mapInteractive) return;
+  map.zoomTo(map.getZoom() + delta, { duration: 220, essential: true });
+}
+
+// Wallpaper Engine may route wheel input outside MapLibre's canvas listener.
+// Capture wheel over map-like areas so zoom also works in the wallpaper host.
+document.addEventListener(
+  'wheel',
+  (event) => {
+    if (!state.mapInteractive) return;
+    if (
+      event.target instanceof Element &&
+      event.target.closest('.panel, .wallpaper-clock, .panel-launcher, .wallpaper-zoom, .modal-backdrop')
+    ) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    zoomMapBy(event.deltaY < 0 ? 0.35 : -0.35);
+  },
+  { passive: false, capture: true },
+);
 
 // Exposed only in ?debug=1 for local end-to-end checks.
 if (DEBUG) {
@@ -2150,6 +2298,17 @@ $$(
   input.addEventListener('change', updateExportHint);
 });
 els.importBtn.addEventListener('click', openImportPicker);
+els.wallpaperZoomIn?.addEventListener('click', () => zoomMapBy(0.5));
+els.wallpaperZoomOut?.addEventListener('click', () => zoomMapBy(-0.5));
+els.wallpaperResetBtn?.addEventListener('click', async () => {
+  if (!window.__WALLPAPER_DATA__) return;
+  try {
+    await clearDataset();
+    await applyDataset(window.__WALLPAPER_DATA__, { persist: false, fit: true });
+  } catch (err) {
+    console.error('[wallpaper] reset route failed', err);
+  }
+});
 els.syncBtn.addEventListener('click', openSyncModal);
 els.clearBtn.addEventListener('click', clearData);
 els.onboardImport.addEventListener('click', openImportPicker);
@@ -2235,6 +2394,7 @@ let launcherDrag = null;
 let suppressLauncherClick = false;
 let panelAnimTimer = 0;
 let savedPanelPosition = readStoredPosition(PANEL_POS_KEY);
+let lastPanelPosition = savedPanelPosition;
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function readStoredPosition(key) {
@@ -2269,6 +2429,7 @@ function applyPanelPosition(left, top, { persist = false } = {}) {
   els.panel.style.top = `${y}px`;
   els.panel.style.right = 'auto';
   els.panel.style.bottom = 'auto';
+  lastPanelPosition = { left: x, top: y };
   if (persist) {
     savedPanelPosition = { left: x, top: y };
     writeStoredPosition(PANEL_POS_KEY, x, y);
@@ -2281,6 +2442,7 @@ function defaultPanelTop() {
 
 function resetPanelPosition() {
   savedPanelPosition = null;
+  lastPanelPosition = null;
   try {
     localStorage.removeItem(PANEL_POS_KEY);
   } catch {
@@ -2367,8 +2529,9 @@ function showPanel() {
   els.panel.classList.remove('is-minimizing');
   els.panelToggle.setAttribute('aria-expanded', 'true');
 
-  if (savedPanelPosition) {
-    applyPanelPosition(savedPanelPosition.left, savedPanelPosition.top, { persist: false });
+  if (savedPanelPosition || lastPanelPosition) {
+    const position = savedPanelPosition || lastPanelPosition;
+    applyPanelPosition(position.left, position.top, { persist: false });
   } else {
     applyPanelPosition(18, defaultPanelTop(), { persist: false });
   }
@@ -2539,6 +2702,10 @@ window.addEventListener('resize', () => {
     const rect = els.panelLauncher.getBoundingClientRect();
     applyLauncherPosition(rect.left, rect.top, { persist: false });
   }
+  if (els.wallpaperClock.style.left) {
+    const rect = els.wallpaperClock.getBoundingClientRect();
+    applyClockPosition(rect.left, rect.top, { persist: false });
+  }
 });
 
 /* ------------------------------------------------------------------ */
@@ -2669,7 +2836,21 @@ async function boot() {
   map.jumpTo({ center: [104, 35], zoom: 3.4 });
 
   let hasStored = false;
-  if (WALLPAPER_MODE && window.__WALLPAPER_DATA__) {
+  if (WALLPAPER_MODE) {
+    try {
+      const stored = await loadDataset();
+      if (stored && Array.isArray(stored.features) && stored.features.length > 0) {
+        await applyDataset(stored, { persist: false, fit: true });
+        hasStored = true;
+        if (!state.customName && stored.user?.name) {
+          setName(stored.user.name, { custom: false, persist: false });
+        }
+      }
+    } catch (err) {
+      console.warn('[store]', err);
+    }
+  }
+  if (!hasStored && WALLPAPER_MODE && window.__WALLPAPER_DATA__) {
     try {
       await applyDataset(window.__WALLPAPER_DATA__, { persist: false, fit: true });
       hasStored = true;
@@ -2677,7 +2858,7 @@ async function boot() {
       console.error('[wallpaper] static data failed', err);
     }
   }
-  if (!hasStored) {
+  if (!WALLPAPER_MODE && !hasStored) {
     try {
       const stored = await loadDataset();
       if (stored && Array.isArray(stored.features) && stored.features.length > 0) {
@@ -2691,6 +2872,9 @@ async function boot() {
       console.warn('[store]', err);
       toast('浏览器本地存储不可用，刷新后数据会丢失', 5000);
     }
+  }
+  if (els.wallpaperResetBtn) {
+    els.wallpaperResetBtn.hidden = !window.__WALLPAPER_DATA__;
   }
 
   if (!hasStored) showEmptyUI();
