@@ -709,15 +709,13 @@ const MAP_HANDLERS = [
   map.keyboard,
 ];
 
+// All map input in the wallpaper build is handled by our own pointer/wheel code.
+for (const handler of MAP_HANDLERS) handler?.disable();
+
 function setMapInteractive(interactive) {
   if (state.mapInteractive === interactive) return;
   state.mapInteractive = interactive;
   document.body.classList.toggle('map-interactive', interactive);
-  for (const handler of MAP_HANDLERS) {
-    if (!handler) continue;
-    if (interactive) handler.enable();
-    else handler.disable();
-  }
   els.wallpaperZoom.hidden = !interactive;
   const canvas = map.getCanvas();
   if (canvas) canvas.style.cursor = interactive ? 'grab' : 'default';
@@ -734,6 +732,10 @@ let mapPan = null;
 function initWallpaperMapPan() {
   const canvas = map.getCanvas();
   if (!canvas) return;
+
+  canvas.addEventListener('dblclick', () => {
+    if (state.mapInteractive) zoomMapBy(0.5);
+  });
 
   canvas.addEventListener('pointerdown', (event) => {
     if (!state.mapInteractive || event.button !== 0) return;
