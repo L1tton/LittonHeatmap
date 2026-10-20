@@ -683,6 +683,81 @@ const map = new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl({ showCompass: false, showZoom: true }), 'top-right');
 map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }), 'bottom-left');
 
+const VIEW_KEY = 'trailmap.wallpaper.view';
+let viewSaveEnabled = false;
+let viewSaveTimer = 0;
+
+function readStoredView() {
+  if (!WALLPAPER_MODE) return null;
+  try {
+    const saved = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null');
+    if (!saved) return null;
+    const lng = Number(saved.lng);
+    const lat = Number(saved.lat);
+    const zoom = Number(saved.zoom);
+    if (
+      !Number.isFinite(lng) ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(zoom) ||
+      lng < -180 ||
+      lng > 180 ||
+      lat < -85 ||
+      lat > 85 ||
+      zoom < 0 ||
+      zoom > 22
+    ) {
+      return null;
+    }
+    return { lng, lat, zoom };
+  } catch {
+    return null;
+  }
+}
+
+function saveMapView() {
+  if (!WALLPAPER_MODE || !viewSaveEnabled) return;
+  try {
+    const center = map.getCenter();
+    const [lng, lat] =
+      state.datum === 'gcj02'
+        ? gcj02ToWgs84(center.lng, center.lat)
+        : [center.lng, center.lat];
+    localStorage.setItem(
+      VIEW_KEY,
+      JSON.stringify({
+        lng: Math.round(lng * 1000000) / 1000000,
+        lat: Math.round(lat * 1000000) / 1000000,
+        zoom: Math.round(map.getZoom() * 100) / 100,
+      }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+function scheduleSaveMapView() {
+  if (!viewSaveEnabled) return;
+  window.clearTimeout(viewSaveTimer);
+  viewSaveTimer = window.setTimeout(saveMapView, 250);
+}
+
+function restoreMapView(saved) {
+  if (!saved) return;
+  const center =
+    state.datum === 'gcj02' ? wgs84ToGcj02(saved.lng, saved.lat) : [saved.lng, saved.lat];
+  try {
+    map.jumpTo({ center, zoom: saved.zoom });
+  } catch {
+    /* ignore */
+  }
+}
+
+map.on('moveend', scheduleSaveMapView);
+window.addEventListener('pagehide', saveMapView);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) saveMapView();
+});
+
 // Drag-pan is handled by our own pointer code so it also works inside
 // Wallpaper Engine's embedded browser.
 map.dragPan.disable();
@@ -2928,6 +3003,7 @@ function hideLoading() {
 
 async function boot() {
   startWallpaperClock();
+  const savedView = readStoredView();
   let savedBase = (() => {
     try {
       return localStorage.getItem(BASE_KEY) || localStorage.getItem('xingzhe.base');
@@ -3046,7 +3122,7 @@ async function boot() {
     try {
       const stored = await loadDataset();
       if (stored && Array.isArray(stored.features) && stored.features.length > 0) {
-        await applyDataset(stored, { persist: false, fit: true });
+        await applyDataset(stored, { persist: false, fit: !savedView });
         hasStored = true;
         if (!state.customName && stored.user?.name) {
           setName(stored.user.name, { custom: false, persist: false });
@@ -3058,7 +3134,7 @@ async function boot() {
   }
   if (!hasStored && WALLPAPER_MODE && !wallpaperCleared && window.__WALLPAPER_DATA__) {
     try {
-      await applyDataset(window.__WALLPAPER_DATA__, { persist: false, fit: true });
+      await applyDataset(window.__WALLPAPER_DATA__, { persist: false, fit: !savedView });
       hasStored = true;
     } catch (err) {
       console.error('[wallpaper] static data failed', err);
@@ -3079,6 +3155,12 @@ async function boot() {
       toast('浏览器本地存储不可用，刷新后数据会丢失', 5000);
     }
   }
+
+  if (WALLPAPER_MODE) {
+    if (savedView) restoreMapView(savedView);
+    viewSaveEnabled = true;
+  }
+
   if (els.wallpaperResetBtn) {
     els.wallpaperResetBtn.hidden = !window.__WALLPAPER_DATA__;
   }
