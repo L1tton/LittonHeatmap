@@ -611,8 +611,11 @@ const map = new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl({ showCompass: false, showZoom: true }), 'top-right');
 map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }), 'bottom-left');
 
+// Drag-pan is handled by our own pointer code so it also works inside
+// Wallpaper Engine's embedded browser.
+map.dragPan.disable();
+
 const MAP_HANDLERS = [
-  map.dragPan,
   map.scrollZoom,
   map.boxZoom,
   map.doubleClickZoom,
@@ -631,13 +634,70 @@ function setMapInteractive(interactive) {
   }
   els.wallpaperZoom.hidden = !interactive;
   const canvas = map.getCanvas();
-  if (canvas) canvas.style.cursor = interactive ? '' : 'default';
+  if (canvas) canvas.style.cursor = interactive ? 'grab' : 'default';
 }
 
 function zoomMapBy(delta) {
   if (!state.mapInteractive) return;
   map.zoomTo(map.getZoom() + delta, { duration: 220, essential: true });
 }
+
+let suppressMapClick = false;
+let mapPan = null;
+
+function initWallpaperMapPan() {
+  const canvas = map.getCanvas();
+  if (!canvas) return;
+
+  canvas.addEventListener('pointerdown', (event) => {
+    if (!state.mapInteractive || event.button !== 0) return;
+    mapPan = {
+      pointerId: event.pointerId,
+      lastX: event.clientX,
+      lastY: event.clientY,
+      moved: false,
+    };
+    canvas.style.cursor = 'grabbing';
+    try {
+      canvas.setPointerCapture(event.pointerId);
+    } catch {
+      /* ignore */
+    }
+
+    const onMove = (moveEvent) => {
+      if (!mapPan || moveEvent.pointerId !== mapPan.pointerId) return;
+      const dx = moveEvent.clientX - mapPan.lastX;
+      const dy = moveEvent.clientY - mapPan.lastY;
+      mapPan.lastX = moveEvent.clientX;
+      mapPan.lastY = moveEvent.clientY;
+      if (!mapPan.moved && Math.hypot(dx, dy) < 2) return;
+      mapPan.moved = true;
+      suppressMapClick = true;
+      map.panBy([-dx, -dy], { duration: 0 });
+    };
+    const finish = (upEvent) => {
+      if (!mapPan || upEvent.pointerId !== mapPan.pointerId) return;
+      mapPan = null;
+      canvas.style.cursor = state.mapInteractive ? 'grab' : 'default';
+      try {
+        canvas.releasePointerCapture(upEvent.pointerId);
+      } catch {
+        /* ignore */
+      }
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
+      window.setTimeout(() => {
+        suppressMapClick = false;
+      }, 120);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
+  });
+}
+
+initWallpaperMapPan();
 
 // Wallpaper Engine may route wheel input outside MapLibre's canvas listener.
 // Capture wheel over map-like areas so zoom also works in the wallpaper host.
@@ -944,8 +1004,6 @@ async function clearData() {
 }
 
 async function clearWallpaperRoute() {
-  const ok = window.confirm('清除当前所有路线？可以用“恢复默认路线”恢复构建时的默认数据。');
-  if (!ok) return;
   try {
     await clearDataset();
     localStorage.setItem(WALLPAPER_CLEARED_KEY, '1');
@@ -1344,7 +1402,7 @@ function applyTrackColor(hex, { persist = true } = {}) {
 let activePopup = null;
 
 map.on('click', 'track-line', (event) => {
-  if (!state.mapInteractive) return;
+  if (!state.mapInteractive || suppressMapClick) return;
   const feature = event.features && event.features[0];
   if (!feature) return;
   const p = feature.properties;
@@ -1379,7 +1437,7 @@ map.on('mouseenter', 'track-line', () => {
   map.getCanvas().style.cursor = 'pointer';
 });
 map.on('mouseleave', 'track-line', () => {
-  map.getCanvas().style.cursor = '';
+  map.getCanvas().style.cursor = state.mapInteractive ? 'grab' : 'default';
 });
 
 /* ------------------------------------------------------------------ */
