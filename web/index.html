@@ -130,6 +130,7 @@
 
         <div class="data-actions">
           <button type="button" class="link-btn" id="importBtn">导入 GPX / FIT</button>
+          <button type="button" class="link-btn" id="wallpaperResetBtn">恢复默认路线</button>
           <button type="button" class="link-btn" id="syncBtn">同步行者</button>
           <button type="button" class="link-btn danger" id="clearBtn" hidden>清空</button>
         </div>
@@ -148,6 +149,11 @@
     >
       ☰
     </button>
+
+    <div class="wallpaper-zoom" id="wallpaperZoom" hidden>
+      <button type="button" id="wallpaperZoomIn" title="放大" aria-label="放大">+</button>
+      <button type="button" id="wallpaperZoomOut" title="缩小" aria-label="缩小">−</button>
+    </div>
 
     <section class="onboarding" id="onboarding">
       <div class="onboarding-card">
