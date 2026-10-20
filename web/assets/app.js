@@ -2659,7 +2659,7 @@ function hidePanel() {
     els.panel.style.transformOrigin = '';
     els.panelLauncher.hidden = false;
     els.panelToggle.setAttribute('aria-expanded', 'false');
-    if (!prefersReducedMotion) {
+    if (!prefersReducedMotion && !WALLPAPER_MODE) {
       els.panelLauncher.classList.add('is-popping');
       requestAnimationFrame(() => {
         requestAnimationFrame(() => els.panelLauncher.classList.remove('is-popping'));
@@ -2667,7 +2667,7 @@ function hidePanel() {
     }
   };
 
-  if (prefersReducedMotion) {
+  if (prefersReducedMotion || WALLPAPER_MODE) {
     finish();
     return;
   }
@@ -2697,7 +2697,7 @@ function showPanel() {
   const placedRect = els.panel.getBoundingClientRect();
   setMapInteractive(true);
 
-  if (prefersReducedMotion) return;
+  if (prefersReducedMotion || WALLPAPER_MODE) return;
   setPanelTransformOrigin(placedRect);
   els.panel.animate(
     [
