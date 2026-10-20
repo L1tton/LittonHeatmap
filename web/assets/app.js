@@ -1171,8 +1171,13 @@ function fitAll(duration = 600) {
 /* Basemap + datum                                                     */
 /* ------------------------------------------------------------------ */
 
+function applyClockThemeForBasemap(def) {
+  document.body.dataset.clockTheme = def?.vectorTheme === 'light' ? 'light' : 'dark';
+}
+
 function applyBasemap(id, { preserveView = true, persist = true } = {}) {
   const def = BASEMAPS[id] || BASEMAPS.dark || BASEMAPS.light;
+  applyClockThemeForBasemap(def);
   if (map.getLayer('background')) {
     map.setPaintProperty('background', 'background-color', def.bg || PAPER);
   }
@@ -2915,6 +2920,7 @@ async function boot() {
   }
 
   state.base = savedBase && BASEMAPS[savedBase] ? savedBase : 'dark';
+  applyClockThemeForBasemap(BASEMAPS[state.base]);
   updateAvailableBasemaps();
   updateBaseButtons();
   updateLabelToggle();
