@@ -1373,9 +1373,9 @@ body.wallpaper-mode:not(.map-interactive) #map {
 }
 
 .wallpaper-mode .panel-launcher {
-  top: auto;
+  top: 24px;
   right: 24px;
-  bottom: 24px;
+  bottom: auto;
   left: auto;
   opacity: 0.78;
 }
@@ -1388,8 +1388,9 @@ body.wallpaper-mode:not(.map-interactive) #map {
 .wallpaper-zoom {
   position: fixed;
   z-index: 28;
+  top: 74px;
   right: 24px;
-  bottom: 24px;
+  bottom: auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
