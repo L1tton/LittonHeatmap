@@ -12,9 +12,6 @@
   --panel: rgba(255, 253, 249, 0.95);
   --shadow: 0 10px 34px rgba(40, 32, 22, 0.12);
   --radius: 14px;
-  --clock-font: "Bodoni MT", Didot, Georgia, "Times New Roman", serif;
-  --clock-scale: 1;
-  --clock-spacing: 1;
   font-synthesis: none;
 }
 
@@ -1290,11 +1287,6 @@ body.wallpaper-mode {
   user-select: none;
 }
 
-.wallpaper-mode * {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
 body.wallpaper-mode #map {
   position: fixed;
   inset: 0;
@@ -1352,38 +1344,6 @@ body.wallpaper-mode:not(.map-interactive) #map {
   opacity: 1;
 }
 
-/* Wallpaper Engine's CEF compositor can crash when a backdrop-filter
-   element is composited over the WebGL map. Keep wallpaper chrome opaque. */
-.wallpaper-mode .panel,
-.wallpaper-mode .panel-launcher {
-  background: #fffdf9;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  transition: none;
-  box-shadow: none;
-}
-
-.wallpaper-mode .wallpaper-zoom {
-  box-shadow: none;
-}
-
-.wallpaper-mode .clock-time,
-.wallpaper-mode .clock-date,
-.wallpaper-mode .clock-weekday {
-  text-shadow: none;
-}
-
-
-.wallpaper-mode .panel.is-minimizing {
-  transform: none;
-  opacity: 0;
-}
-
-.wallpaper-mode .panel-launcher.is-popping {
-  transform: none;
-  opacity: 0;
-}
-
 .wallpaper-zoom {
   position: fixed;
   z-index: 28;
@@ -1422,24 +1382,6 @@ body.wallpaper-mode:not(.map-interactive) #map {
 
 .wallpaper-zoom[hidden] {
   display: none !important;
-}
-
-.clock-style-control {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-}
-
-.clock-font-select {
-  margin: 4px 0 10px;
-}
-
-.clock-style-row {
-  margin-top: 8px;
-}
-
-.clock-style-control .link-btn {
-  margin-left: auto;
 }
 
 .wallpaper-clock {
@@ -1495,30 +1437,35 @@ body.wallpaper-mode:not(.map-interactive) #map {
 }
 
 .clock-time {
-  font-family: var(--clock-font);
-  font-size: calc(clamp(64px, 5.4vw, 112px) * var(--clock-scale));
+  font-family: "Bodoni MT", Didot, Georgia, "Times New Roman", serif;
+  font-size: clamp(64px, 5.4vw, 112px);
   font-weight: 700;
   line-height: 0.9;
-  letter-spacing: calc(0.04em * var(--clock-spacing));
+  letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
-  color: #e6dfd0;
-  text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.45),
-    0 3px 0 rgba(120, 110, 93, 0.55),
-    0 7px 12px rgba(0, 0, 0, 0.32);
+  background: linear-gradient(180deg, #f4efe4 0%, #ddd5c6 46%, #bfb5a2 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(79, 72, 60, 0.5);
+  filter: drop-shadow(0 2px 0 rgba(255, 255, 255, 0.4))
+    drop-shadow(0 5px 7px rgba(0, 0, 0, 0.32));
 }
 
 .clock-date,
 .clock-weekday {
-  font-family: var(--clock-font);
-  font-size: calc(clamp(23px, 2.35vw, 46px) * var(--clock-scale));
+  font-family: "Bodoni MT", Didot, Georgia, "Times New Roman", serif;
+  font-size: clamp(23px, 2.35vw, 46px);
   font-weight: 700;
   line-height: 1.16;
-  letter-spacing: calc(0.1em * var(--clock-spacing));
-  color: #ddd5c6;
-  text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.4),
-    0 3px 4px rgba(0, 0, 0, 0.28);
+  letter-spacing: 0.1em;
+  background: linear-gradient(180deg, #f0ebdf 0%, #d5ccbc 50%, #b8ad9b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(83, 76, 64, 0.42);
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.38))
+    drop-shadow(0 3px 4px rgba(0, 0, 0, 0.28));
 }
 
 .clock-date {
@@ -1537,12 +1484,12 @@ body.wallpaper-mode:not(.map-interactive) #map {
   }
 
   .clock-time {
-    font-size: calc(clamp(52px, 12vw, 88px) * var(--clock-scale));
+    font-size: clamp(52px, 12vw, 88px);
   }
 
   .clock-date,
   .clock-weekday {
-    font-size: calc(clamp(20px, 4.5vw, 34px) * var(--clock-scale));
+    font-size: clamp(20px, 4.5vw, 34px);
   }
 }
 
