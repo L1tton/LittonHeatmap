@@ -16,6 +16,15 @@
     <div id="map" aria-label="运动轨迹地图"></div>
 
     <div class="wallpaper-clock" id="wallpaperClock" aria-hidden="true">
+      <button
+        type="button"
+        class="clock-grip"
+        id="clockGrip"
+        title="拖动时间，双击复位"
+        aria-label="拖动时间"
+      >
+        ⠿
+      </button>
       <div class="clock-time" id="clockTime">--:--</div>
       <div class="clock-date" id="clockDate">—</div>
       <div class="clock-weekday" id="clockWeekday">—</div>
@@ -131,6 +140,7 @@
         <div class="data-actions">
           <button type="button" class="link-btn" id="importBtn">导入 GPX / FIT</button>
           <button type="button" class="link-btn" id="wallpaperResetBtn">恢复默认路线</button>
+          <button type="button" class="link-btn danger" id="wallpaperClearBtn">清除路线</button>
           <button type="button" class="link-btn" id="syncBtn">同步行者</button>
           <button type="button" class="link-btn danger" id="clearBtn" hidden>清空</button>
         </div>
