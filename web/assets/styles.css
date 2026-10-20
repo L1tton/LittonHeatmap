@@ -12,6 +12,9 @@
   --panel: rgba(255, 253, 249, 0.95);
   --shadow: 0 10px 34px rgba(40, 32, 22, 0.12);
   --radius: 14px;
+  --clock-font: "Bodoni MT", Didot, Georgia, "Times New Roman", serif;
+  --clock-scale: 1;
+  --clock-spacing: 1;
   font-synthesis: none;
 }
 
@@ -1384,6 +1387,24 @@ body.wallpaper-mode:not(.map-interactive) #map {
   display: none !important;
 }
 
+.clock-style-control {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.clock-font-select {
+  margin: 4px 0 10px;
+}
+
+.clock-style-row {
+  margin-top: 8px;
+}
+
+.clock-style-control .link-btn {
+  margin-left: auto;
+}
+
 .wallpaper-clock {
   position: fixed;
   z-index: 12;
@@ -1437,11 +1458,11 @@ body.wallpaper-mode:not(.map-interactive) #map {
 }
 
 .clock-time {
-  font-family: "Bodoni MT", Didot, Georgia, "Times New Roman", serif;
-  font-size: clamp(64px, 5.4vw, 112px);
+  font-family: var(--clock-font);
+  font-size: calc(clamp(64px, 5.4vw, 112px) * var(--clock-scale));
   font-weight: 700;
   line-height: 0.9;
-  letter-spacing: 0.04em;
+  letter-spacing: calc(0.04em * var(--clock-spacing));
   font-variant-numeric: tabular-nums;
   background: linear-gradient(180deg, #f4efe4 0%, #ddd5c6 46%, #bfb5a2 100%);
   -webkit-background-clip: text;
@@ -1454,11 +1475,11 @@ body.wallpaper-mode:not(.map-interactive) #map {
 
 .clock-date,
 .clock-weekday {
-  font-family: "Bodoni MT", Didot, Georgia, "Times New Roman", serif;
-  font-size: clamp(23px, 2.35vw, 46px);
+  font-family: var(--clock-font);
+  font-size: calc(clamp(23px, 2.35vw, 46px) * var(--clock-scale));
   font-weight: 700;
   line-height: 1.16;
-  letter-spacing: 0.1em;
+  letter-spacing: calc(0.1em * var(--clock-spacing));
   background: linear-gradient(180deg, #f0ebdf 0%, #d5ccbc 50%, #b8ad9b 100%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -1484,12 +1505,12 @@ body.wallpaper-mode:not(.map-interactive) #map {
   }
 
   .clock-time {
-    font-size: clamp(52px, 12vw, 88px);
+    font-size: calc(clamp(52px, 12vw, 88px) * var(--clock-scale));
   }
 
   .clock-date,
   .clock-weekday {
-    font-size: clamp(20px, 4.5vw, 34px);
+    font-size: calc(clamp(20px, 4.5vw, 34px) * var(--clock-scale));
   }
 }
 
