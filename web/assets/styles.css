@@ -1347,6 +1347,26 @@ body.wallpaper-mode:not(.map-interactive) #map {
   opacity: 1;
 }
 
+/* Wallpaper Engine's CEF compositor can crash when a backdrop-filter
+   element is composited over the WebGL map. Keep wallpaper chrome opaque. */
+.wallpaper-mode .panel,
+.wallpaper-mode .panel-launcher {
+  background: #fffdf9;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: none;
+}
+
+.wallpaper-mode .panel.is-minimizing {
+  transform: none;
+  opacity: 0;
+}
+
+.wallpaper-mode .panel-launcher.is-popping {
+  transform: none;
+  opacity: 0;
+}
+
 .wallpaper-zoom {
   position: fixed;
   z-index: 28;
