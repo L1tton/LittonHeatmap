@@ -1171,13 +1171,14 @@ function fitAll(duration = 600) {
 /* Basemap + datum                                                     */
 /* ------------------------------------------------------------------ */
 
-function applyClockThemeForBasemap(def) {
-  document.body.dataset.clockTheme = def?.vectorTheme === 'light' ? 'light' : 'dark';
+function applyClockThemeForBasemap(id, def) {
+  const light = id === 'light' || id === 'satellite' || id === 'none' || def?.vectorTheme === 'light';
+  document.body.dataset.clockTheme = light ? 'light' : 'dark';
 }
 
 function applyBasemap(id, { preserveView = true, persist = true } = {}) {
   const def = BASEMAPS[id] || BASEMAPS.dark || BASEMAPS.light;
-  applyClockThemeForBasemap(def);
+  applyClockThemeForBasemap(id, def);
   if (map.getLayer('background')) {
     map.setPaintProperty('background', 'background-color', def.bg || PAPER);
   }
@@ -2920,7 +2921,7 @@ async function boot() {
   }
 
   state.base = savedBase && BASEMAPS[savedBase] ? savedBase : 'dark';
-  applyClockThemeForBasemap(BASEMAPS[state.base]);
+  applyClockThemeForBasemap(state.base, BASEMAPS[state.base]);
   updateAvailableBasemaps();
   updateBaseButtons();
   updateLabelToggle();
