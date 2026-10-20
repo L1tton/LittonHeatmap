@@ -1,3 +1,13 @@
+@font-face {
+  font-family: "Blackout 2AM";
+  src:
+    url("fonts/blackout-2am.woff2") format("woff2"),
+    url("fonts/blackout-2am.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --paper: #f3efe7;
   --paper-deep: #e8e1d5;
@@ -1387,7 +1397,7 @@ body.wallpaper-mode:not(.map-interactive) #map {
 .wallpaper-clock {
   position: fixed;
   z-index: 12;
-  top: 48%;
+  top: 50%;
   right: 22vw;
   display: flex;
   flex-direction: column;
@@ -1437,35 +1447,47 @@ body.wallpaper-mode:not(.map-interactive) #map {
 }
 
 .clock-time {
-  font-family: "Bodoni MT", Didot, Georgia, "Times New Roman", serif;
-  font-size: clamp(64px, 5.4vw, 112px);
-  font-weight: 700;
-  line-height: 0.9;
-  letter-spacing: 0.04em;
+  font-family: "Blackout 2AM", "Arial Black", Impact, sans-serif;
+  font-size: clamp(68px, 5.6vw, 108px);
+  font-weight: 400;
+  line-height: 0.84;
+  letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
-  background: linear-gradient(180deg, #f4efe4 0%, #ddd5c6 46%, #bfb5a2 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-stroke: 1px rgba(79, 72, 60, 0.5);
-  filter: drop-shadow(0 2px 0 rgba(255, 255, 255, 0.4))
-    drop-shadow(0 5px 7px rgba(0, 0, 0, 0.32));
+  color: #e5ded0;
+  -webkit-text-stroke: 1.5px rgba(72, 65, 53, 0.7);
+  text-shadow:
+    0 2px 0 rgba(255, 255, 255, 0.42),
+    0 4px 0 rgba(154, 143, 124, 0.6),
+    0 8px 12px rgba(0, 0, 0, 0.38);
 }
 
 .clock-date,
 .clock-weekday {
-  font-family: "Bodoni MT", Didot, Georgia, "Times New Roman", serif;
-  font-size: clamp(23px, 2.35vw, 46px);
-  font-weight: 700;
+  font-family: "Blackout 2AM", "Arial Black", Impact, sans-serif;
+  font-size: clamp(24px, 2.4vw, 48px);
+  font-weight: 400;
   line-height: 1.16;
-  letter-spacing: 0.1em;
-  background: linear-gradient(180deg, #f0ebdf 0%, #d5ccbc 50%, #b8ad9b 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-stroke: 1px rgba(83, 76, 64, 0.42);
-  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.38))
-    drop-shadow(0 3px 4px rgba(0, 0, 0, 0.28));
+  letter-spacing: 0.06em;
+  color: #ddd5c6;
+  -webkit-text-stroke: 1px rgba(72, 65, 53, 0.62);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.38),
+    0 3px 4px rgba(0, 0, 0, 0.3);
+}
+
+.clock-time .tilt-char,
+.clock-date .tilt-char,
+.clock-weekday .tilt-char {
+  display: inline-block;
+  transform: translateY(var(--lift, 0)) rotate(var(--tilt, 0deg)) skewX(var(--skew, 0deg));
+  transform-origin: 50% 74%;
+}
+
+.clock-time .tilt-space,
+.clock-date .tilt-space,
+.clock-weekday .tilt-space {
+  width: 0.52em;
+  transform: none;
 }
 
 .clock-date {
