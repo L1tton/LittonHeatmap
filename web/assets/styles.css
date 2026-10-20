@@ -1484,6 +1484,21 @@ body.wallpaper-mode:not(.map-interactive) #map {
   transform-origin: 50% 74%;
 }
 
+.wallpaper-clock.line-tilt .tilt-char {
+  transform: none;
+}
+
+.wallpaper-clock.line-tilt .clock-time,
+.wallpaper-clock.line-tilt .clock-date,
+.wallpaper-clock.line-tilt .clock-weekday {
+  transform: rotate(-3.2deg);
+  transform-origin: 50% 50%;
+}
+
+.time-tilt-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
 .clock-time .tilt-space,
 .clock-date .tilt-space,
 .clock-weekday .tilt-space {
