@@ -1479,6 +1479,7 @@ body.wallpaper-mode:not(.map-interactive) #map {
 .clock-date .tilt-char,
 .clock-weekday .tilt-char {
   display: inline-block;
+  margin: 0 0.025em;
   transform: translateY(var(--lift, 0)) rotate(var(--tilt, 0deg)) skewX(var(--skew, 0deg));
   transform-origin: 50% 74%;
 }
@@ -1486,7 +1487,8 @@ body.wallpaper-mode:not(.map-interactive) #map {
 .clock-time .tilt-space,
 .clock-date .tilt-space,
 .clock-weekday .tilt-space {
-  width: 0.52em;
+  width: 0.64em;
+  margin: 0;
   transform: none;
 }
 
