@@ -773,15 +773,16 @@ function mapPadding() {
       ? { top: 22, bottom: 64, left: 22, right: 22 }
       : { top: 56, bottom: 56, left: 22, right: 22 };
   }
-  const panelRect = els.panel.getBoundingClientRect();
+
+  // 全览只参考面板的初始尺寸，不跟随面板被拖到哪。
   if (window.innerWidth <= 720) {
     const top = Math.min(
-      Math.max(96, panelRect.bottom + 18),
+      Math.max(96, 10 + els.panel.offsetHeight + 18),
       Math.round(window.innerHeight * 0.68),
     );
     return { top, bottom: 64, left: 22, right: 22 };
   }
-  return { top: 56, bottom: 56, left: Math.max(360, panelRect.right + 26), right: 56 };
+  return { top: 56, bottom: 56, left: 360, right: 56 };
 }
 
 function fitFeatures(features, duration = 0) {
