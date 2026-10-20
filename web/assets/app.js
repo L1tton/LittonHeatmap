@@ -705,6 +705,7 @@ function setMapInteractive(interactive) {
     else handler.disable();
   }
   els.wallpaperZoom.hidden = !interactive;
+  if (interactive) positionWallpaperZoom();
   const canvas = map.getCanvas();
   if (canvas) canvas.style.cursor = interactive ? 'grab' : 'default';
 }
@@ -2542,6 +2543,7 @@ const PANEL_POS_KEY = 'trailmap.wallpaper.panelPos';
 const LAUNCHER_POS_KEY = 'trailmap.wallpaper.launcherPos';
 let panelDrag = null;
 let launcherDrag = null;
+let launcherBounds = null;
 let suppressLauncherClick = false;
 let panelAnimTimer = 0;
 let savedPanelPosition = readStoredPosition(PANEL_POS_KEY);
@@ -2615,7 +2617,38 @@ function applyLauncherPosition(left, top, { persist = false } = {}) {
   els.panelLauncher.style.top = `${y}px`;
   els.panelLauncher.style.right = 'auto';
   els.panelLauncher.style.bottom = 'auto';
+  launcherBounds = { left: x, top: y, right: x + width, bottom: y + height };
+  positionWallpaperZoom();
   if (persist) writeStoredPosition(LAUNCHER_POS_KEY, x, y);
+}
+
+function positionWallpaperZoom() {
+  if (!els.wallpaperZoom) return;
+  let bounds = launcherBounds;
+  if (els.panelLauncher && !els.panelLauncher.hidden) {
+    const rect = els.panelLauncher.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      bounds = { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+      launcherBounds = bounds;
+    }
+  }
+  if (!bounds) return;
+
+  const margin = 8;
+  const gap = 8;
+  const width = els.wallpaperZoom.offsetWidth || 44;
+  const height = els.wallpaperZoom.offsetHeight || 86;
+  let left = bounds.right - width;
+  let top = bounds.bottom + gap;
+  if (top + height > window.innerHeight - margin) {
+    top = bounds.top - height - gap;
+  }
+  left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+  top = Math.max(margin, Math.min(top, window.innerHeight - height - margin));
+  els.wallpaperZoom.style.left = `${Math.round(left)}px`;
+  els.wallpaperZoom.style.top = `${Math.round(top)}px`;
+  els.wallpaperZoom.style.right = 'auto';
+  els.wallpaperZoom.style.bottom = 'auto';
 }
 
 function launcherCenter() {
@@ -2623,7 +2656,7 @@ function launcherCenter() {
   const width = els.panelLauncher.offsetWidth || 42;
   const height = els.panelLauncher.offsetHeight || 42;
   const left = saved ? saved.left : window.innerWidth - 24 - width;
-  const top = saved ? saved.top : window.innerHeight - 24 - height;
+  const top = saved ? saved.top : 24;
   return { x: left + width / 2, y: top + height / 2 };
 }
 
@@ -2651,6 +2684,7 @@ function hidePanel() {
     els.panel.style.transformOrigin = '';
     els.panelLauncher.hidden = false;
     els.panelToggle.setAttribute('aria-expanded', 'false');
+    positionWallpaperZoom();
     if (!prefersReducedMotion) {
       els.panelLauncher.classList.add('is-popping');
       requestAnimationFrame(() => {
@@ -2837,11 +2871,23 @@ function initPanelDrag() {
 
 (function restoreLauncherPosition() {
   const saved = readStoredPosition(LAUNCHER_POS_KEY);
-  if (saved) applyLauncherPosition(saved.left, saved.top);
+  if (!saved) return;
+  const width = els.panelLauncher.offsetWidth || 42;
+  const height = els.panelLauncher.offsetHeight || 42;
+  const legacyLeft = window.innerWidth - 24 - width;
+  const legacyTop = window.innerHeight - 24 - height;
+  const isLegacyDefault =
+    Math.abs(saved.left - legacyLeft) <= 2 && Math.abs(saved.top - legacyTop) <= 2;
+  if (isLegacyDefault) {
+    applyLauncherPosition(window.innerWidth - 24 - width, 24, { persist: true });
+  } else {
+    applyLauncherPosition(saved.left, saved.top);
+  }
 })();
 
 initPanelDrag();
 initLauncherDrag();
+positionWallpaperZoom();
 
 els.panelToggle.addEventListener('click', hidePanel);
 
@@ -2854,6 +2900,7 @@ window.addEventListener('resize', () => {
     const rect = els.panelLauncher.getBoundingClientRect();
     applyLauncherPosition(rect.left, rect.top, { persist: false });
   }
+  positionWallpaperZoom();
   if (els.wallpaperClock.style.left) {
     const rect = els.wallpaperClock.getBoundingClientRect();
     applyClockPosition(rect.left, rect.top, { persist: false });
