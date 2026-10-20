@@ -309,12 +309,6 @@ const els = {
   clockTime: $('#clockTime'),
   clockDate: $('#clockDate'),
   clockWeekday: $('#clockWeekday'),
-  clockFont: $('#clockFont'),
-  clockScale: $('#clockScale'),
-  clockScaleValue: $('#clockScaleValue'),
-  clockSpacing: $('#clockSpacing'),
-  clockSpacingValue: $('#clockSpacingValue'),
-  clockStyleReset: $('#clockStyleReset'),
   syncModal: $('#syncModal'),
   syncIntro: $('#syncIntro'),
   syncProgress: $('#syncProgress'),
@@ -490,86 +484,6 @@ function initClockDrag() {
   els.clockGrip.addEventListener('dblclick', resetClockPosition);
 }
 
-const CLOCK_STYLE_KEY = 'trailmap.wallpaper.clockStyle';
-const CLOCK_FONT_STACKS = {
-  serif: '"Bodoni MT", Didot, Georgia, "Times New Roman", serif',
-  sans: '"Bahnschrift", "Arial Narrow", "Segoe UI", Arial, sans-serif',
-  mono: '"Cascadia Mono", Consolas, "Courier New", monospace',
-};
-
-function readClockStyle() {
-  let saved = null;
-  try {
-    saved = JSON.parse(localStorage.getItem(CLOCK_STYLE_KEY) || 'null');
-  } catch {
-    saved = null;
-  }
-  const font = saved && CLOCK_FONT_STACKS[saved.font] ? saved.font : 'serif';
-  const scale = Number(saved?.scale);
-  const spacing = Number(saved?.spacing);
-  return {
-    font,
-    scale: Number.isFinite(scale) ? Math.min(150, Math.max(60, Math.round(scale))) : 100,
-    spacing: Number.isFinite(spacing)
-      ? Math.min(150, Math.max(50, Math.round(spacing)))
-      : 100,
-  };
-}
-
-function applyClockStyle(style, { persist = false } = {}) {
-  const font = CLOCK_FONT_STACKS[style.font] ? style.font : 'serif';
-  const scale = Math.min(150, Math.max(60, Math.round(Number(style.scale) || 100)));
-  const spacing = Math.min(150, Math.max(50, Math.round(Number(style.spacing) || 100)));
-  const root = document.documentElement;
-  root.style.setProperty('--clock-font', CLOCK_FONT_STACKS[font]);
-  root.style.setProperty('--clock-scale', String(scale / 100));
-  root.style.setProperty('--clock-spacing', String(spacing / 100));
-
-  if (els.clockFont) els.clockFont.value = font;
-  if (els.clockScale) els.clockScale.value = String(scale);
-  if (els.clockScaleValue) els.clockScaleValue.textContent = `${scale}%`;
-  if (els.clockSpacing) els.clockSpacing.value = String(spacing);
-  if (els.clockSpacingValue) els.clockSpacingValue.textContent = `${spacing}%`;
-
-  if (persist) {
-    try {
-      localStorage.setItem(CLOCK_STYLE_KEY, JSON.stringify({ font, scale, spacing }));
-    } catch {
-      /* ignore */
-    }
-  }
-
-  if (els.wallpaperClock?.style.left) {
-    requestAnimationFrame(() => {
-      const rect = els.wallpaperClock.getBoundingClientRect();
-      applyClockPosition(rect.left, rect.top, { persist: false });
-    });
-  }
-}
-
-function initClockStyleControls() {
-  if (!els.clockFont) return;
-  const update = () => {
-    applyClockStyle(
-      {
-        font: els.clockFont.value,
-        scale: Number(els.clockScale.value),
-        spacing: Number(els.clockSpacing.value),
-      },
-      { persist: true },
-    );
-  };
-  els.clockFont.addEventListener('change', update);
-  els.clockScale.addEventListener('input', update);
-  els.clockSpacing.addEventListener('input', update);
-  els.clockStyleReset.addEventListener('click', () => {
-    applyClockStyle({ font: 'serif', scale: 100, spacing: 100 }, { persist: true });
-  });
-}
-
-applyClockStyle(readClockStyle());
-initClockStyleControls();
-
 (function restoreClockPosition() {
   let saved = null;
   try {
@@ -709,13 +623,15 @@ const MAP_HANDLERS = [
   map.keyboard,
 ];
 
-// All map input in the wallpaper build is handled by our own pointer/wheel code.
-for (const handler of MAP_HANDLERS) handler?.disable();
-
 function setMapInteractive(interactive) {
   if (state.mapInteractive === interactive) return;
   state.mapInteractive = interactive;
   document.body.classList.toggle('map-interactive', interactive);
+  for (const handler of MAP_HANDLERS) {
+    if (!handler) continue;
+    if (interactive) handler.enable();
+    else handler.disable();
+  }
   els.wallpaperZoom.hidden = !interactive;
   const canvas = map.getCanvas();
   if (canvas) canvas.style.cursor = interactive ? 'grab' : 'default';
@@ -732,10 +648,6 @@ let mapPan = null;
 function initWallpaperMapPan() {
   const canvas = map.getCanvas();
   if (!canvas) return;
-
-  canvas.addEventListener('dblclick', () => {
-    if (state.mapInteractive) zoomMapBy(0.5);
-  });
 
   canvas.addEventListener('pointerdown', (event) => {
     if (!state.mapInteractive || event.button !== 0) return;
@@ -2661,7 +2573,7 @@ function hidePanel() {
     els.panel.style.transformOrigin = '';
     els.panelLauncher.hidden = false;
     els.panelToggle.setAttribute('aria-expanded', 'false');
-    if (!prefersReducedMotion && !WALLPAPER_MODE) {
+    if (!prefersReducedMotion) {
       els.panelLauncher.classList.add('is-popping');
       requestAnimationFrame(() => {
         requestAnimationFrame(() => els.panelLauncher.classList.remove('is-popping'));
@@ -2669,7 +2581,7 @@ function hidePanel() {
     }
   };
 
-  if (prefersReducedMotion || WALLPAPER_MODE) {
+  if (prefersReducedMotion) {
     finish();
     return;
   }
@@ -2699,7 +2611,7 @@ function showPanel() {
   const placedRect = els.panel.getBoundingClientRect();
   setMapInteractive(true);
 
-  if (prefersReducedMotion || WALLPAPER_MODE) return;
+  if (prefersReducedMotion) return;
   setPanelTransformOrigin(placedRect);
   els.panel.animate(
     [
