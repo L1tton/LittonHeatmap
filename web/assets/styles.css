@@ -1402,7 +1402,8 @@ body.wallpaper-mode:not(.map-interactive) #map {
   display: flex;
   flex-direction: column;
   align-items: center;
-  max-width: 46vw;
+  gap: 5px;
+  max-width: 50vw;
   color: #ded6c6;
   text-align: center;
   text-transform: uppercase;
@@ -1446,40 +1447,51 @@ body.wallpaper-mode:not(.map-interactive) #map {
   cursor: grabbing;
 }
 
-.clock-time {
-  font-family: "Blackout 2AM", "Arial Black", Impact, sans-serif;
-  font-size: clamp(68px, 5.6vw, 108px);
-  font-weight: 400;
-  line-height: 0.84;
-  letter-spacing: 0.02em;
-  font-variant-numeric: tabular-nums;
-  color: #e5ded0;
-  -webkit-text-stroke: 1.5px rgba(72, 65, 53, 0.7);
-  text-shadow:
-    0 2px 0 rgba(255, 255, 255, 0.42),
-    0 4px 0 rgba(154, 143, 124, 0.6),
-    0 8px 12px rgba(0, 0, 0, 0.38);
-}
-
+.clock-time,
 .clock-date,
 .clock-weekday {
+  width: max-content;
+  max-width: 50vw;
+  padding: 0.08em 0.2em;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 2px;
+  background: #f1ebdf;
+  box-shadow:
+    0 3px 7px rgba(35, 30, 20, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
   font-family: "Blackout 2AM", "Arial Black", Impact, sans-serif;
-  font-size: clamp(24px, 2.4vw, 48px);
   font-weight: 400;
-  line-height: 1.16;
-  letter-spacing: 0.06em;
-  color: #ddd5c6;
-  -webkit-text-stroke: 1px rgba(72, 65, 53, 0.62);
-  text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.38),
-    0 3px 4px rgba(0, 0, 0, 0.3);
+  color: #8ccfe3;
+  -webkit-text-stroke: 0;
+  text-shadow: 0 1px 1px rgba(24, 62, 76, 0.18);
+}
+
+.clock-time {
+  font-size: clamp(45px, 3.2vw, 62px);
+  line-height: 0.85;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-date {
+  font-size: clamp(38px, 2.5vw, 50px);
+  line-height: 0.9;
+  letter-spacing: 0.025em;
+  margin-top: 0;
+}
+
+.clock-weekday {
+  font-size: clamp(32px, 2.2vw, 44px);
+  line-height: 0.9;
+  letter-spacing: 0.025em;
+  margin-top: 0;
 }
 
 .clock-time .tilt-char,
 .clock-date .tilt-char,
 .clock-weekday .tilt-char {
   display: inline-block;
-  margin: 0 0.025em;
+  margin: 0 0.018em;
   transform: translateY(var(--lift, 0)) rotate(var(--tilt, 0deg)) skewX(var(--skew, 0deg));
   transform-origin: 50% 74%;
 }
@@ -1488,10 +1500,18 @@ body.wallpaper-mode:not(.map-interactive) #map {
   transform: none;
 }
 
-.wallpaper-clock.line-tilt .clock-time,
-.wallpaper-clock.line-tilt .clock-date,
+.wallpaper-clock.line-tilt .clock-time {
+  transform: rotate(-2.2deg) scaleX(0.95);
+  transform-origin: 50% 50%;
+}
+
+.wallpaper-clock.line-tilt .clock-date {
+  transform: rotate(0.7deg) scaleX(0.9);
+  transform-origin: 50% 50%;
+}
+
 .wallpaper-clock.line-tilt .clock-weekday {
-  transform: rotate(-3.2deg);
+  transform: rotate(-0.5deg) scaleX(0.8);
   transform-origin: 50% 50%;
 }
 
@@ -1502,17 +1522,17 @@ body.wallpaper-mode:not(.map-interactive) #map {
 .clock-time .tilt-space,
 .clock-date .tilt-space,
 .clock-weekday .tilt-space {
-  width: 0.64em;
+  width: 0.52em;
   margin: 0;
   transform: none;
 }
 
 .clock-date {
-  margin-top: 1.1vh;
+  margin-top: 0;
 }
 
 .clock-weekday {
-  margin-top: 0.3vh;
+  margin-top: 0;
 }
 
 @media (max-width: 900px) {
@@ -1523,12 +1543,15 @@ body.wallpaper-mode:not(.map-interactive) #map {
   }
 
   .clock-time {
-    font-size: clamp(52px, 12vw, 88px);
+    font-size: clamp(38px, 8.5vw, 52px);
   }
 
-  .clock-date,
+  .clock-date {
+    font-size: clamp(32px, 7vw, 44px);
+  }
+
   .clock-weekday {
-    font-size: clamp(20px, 4.5vw, 34px);
+    font-size: clamp(28px, 6vw, 38px);
   }
 }
 
