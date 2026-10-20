@@ -1397,8 +1397,6 @@ body.wallpaper-mode:not(.map-interactive) #map {
   text-align: center;
   text-transform: uppercase;
   pointer-events: none;
-  cursor: grab;
-  touch-action: none;
   opacity: 0;
   transform: translateY(-50%);
   transition: opacity 0.6s ease;
@@ -1406,10 +1404,35 @@ body.wallpaper-mode:not(.map-interactive) #map {
 
 .wallpaper-clock.is-ready {
   opacity: 1;
+}
+
+.clock-grip {
+  position: absolute;
+  top: -7px;
+  left: -7px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(80, 72, 60, 0.28);
+  border-radius: 8px;
+  background: rgba(239, 232, 219, 0.28);
+  color: rgba(255, 252, 244, 0.78);
+  font-size: 13px;
+  line-height: 1;
+  place-items: center;
+  cursor: grab;
+  touch-action: none;
+  opacity: 0.45;
   pointer-events: auto;
 }
 
-.wallpaper-clock.is-dragging {
+.clock-grip:hover,
+.clock-grip:focus-visible {
+  opacity: 0.9;
+}
+
+.wallpaper-clock.is-dragging .clock-grip {
   cursor: grabbing;
 }
 
