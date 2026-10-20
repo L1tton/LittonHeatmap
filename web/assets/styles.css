@@ -32,7 +32,19 @@
   --panel: rgba(255, 253, 249, 0.95);
   --shadow: 0 10px 34px rgba(40, 32, 22, 0.12);
   --radius: 14px;
+  --clock-ink: #8ccfe3;
+  --clock-plate: #f1ebdf;
   font-synthesis: none;
+}
+
+body[data-clock-theme="light"] {
+  --clock-ink: #8ccfe3;
+  --clock-plate: #f1ebdf;
+}
+
+body[data-clock-theme="dark"] {
+  --clock-ink: #0d2a3a;
+  --clock-plate: #f1ebdf;
 }
 
 * {
@@ -1465,13 +1477,13 @@ body.wallpaper-mode:not(.map-interactive) #map {
   padding: 0.08em 0.2em;
   border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 2px;
-  background: #f1ebdf;
+  background: var(--clock-plate, #f1ebdf);
   box-shadow:
     2px 3px 6px rgba(35, 30, 20, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.7);
   font-family: "Saira Stencil One", "Arial Black", Impact, sans-serif;
   font-weight: 400;
-  color: #8ccfe3;
+  color: var(--clock-ink, #8ccfe3);
   -webkit-text-stroke: 0;
   text-shadow: none;
 }
