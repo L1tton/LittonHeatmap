@@ -10,6 +10,7 @@
 | --- | --- | --- | --- |
 | MapLibre GL JS | 4.7.1 | BSD-3-Clause | `web/assets/vendor/LICENSE.txt` |
 | fit-file-parser | 6.2.2 | MIT | `web/assets/vendor/fit-parser.LICENSE.txt` |
+| Blackout 2AM | 5.3.0 (Fontsource) | SIL OFL-1.1 | `web/assets/fonts/blackout-2am.LICENSE.txt` |
 
 FIT 浏览器 bundle 由 `scripts/fit-entry.js` 使用 esbuild 打包，包含 fit-file-parser 及其依赖；相关依赖仍遵循各自的开源许可。
 
