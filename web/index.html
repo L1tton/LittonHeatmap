@@ -12,10 +12,16 @@
     <link rel="stylesheet" href="assets/vendor/maplibre-gl.css" />
     <link rel="stylesheet" href="assets/styles.css" />
   </head>
-  <body>
+  <body class="wallpaper-mode">
     <div id="map" aria-label="运动轨迹地图"></div>
 
-    <aside class="panel" id="panel">
+    <div class="wallpaper-clock" id="wallpaperClock" aria-hidden="true">
+      <div class="clock-time" id="clockTime">--:--</div>
+      <div class="clock-date" id="clockDate">—</div>
+      <div class="clock-weekday" id="clockWeekday">—</div>
+    </div>
+
+    <aside class="panel" id="panel" hidden>
       <div class="panel-head" title="拖动移动面板，双击复位">
         <div class="panel-title">
           <div class="eyebrow"><span class="drag-grip" aria-hidden="true">⠿</span><span class="dot"></span>路线总和图</div>
@@ -128,7 +134,7 @@
           <button type="button" class="link-btn danger" id="clearBtn" hidden>清空</button>
         </div>
 
-        <p class="hint">点击轨迹查看记录 · 滚轮或双指缩放</p>
+        <p class="hint">面板打开时可拖动 / 缩放地图</p>
         <p class="updated" id="updatedText"></p>
       </div>
     </aside>
@@ -139,7 +145,6 @@
       id="panelLauncher"
       title="显示控制面板"
       aria-label="显示控制面板"
-      hidden
     >
       ☰
     </button>

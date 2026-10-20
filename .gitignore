@@ -6,5 +6,6 @@ node_modules/
 web/data/tracks-*.json
 web/data/manifest.json
 preview/
+dist/
 *.log
 *.tar.gz

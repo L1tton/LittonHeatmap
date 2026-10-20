@@ -22,6 +22,7 @@ const TRACK_COLORS = [
 const TRACK_COLOR_KEY = 'trailmap.trackColor';
 const PAPER = '#f3efe7';
 const DEBUG = new URLSearchParams(location.search).has('debug');
+const WALLPAPER_MODE = true;
 const EMPTY_FC = { type: 'FeatureCollection', features: [] };
 const NAME_KEY = 'trailmap.name';
 const BASE_KEY = 'trailmap.base';
@@ -245,6 +246,7 @@ const state = {
   importAbort: false,
   autoOpacity: true,
   widthScale: 1,
+  mapInteractive: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -296,6 +298,10 @@ const els = {
   exportHeader: $('#exportHeader'),
   exportSizeHint: $('#exportSizeHint'),
   updatedText: $('#updatedText'),
+  wallpaperClock: $('#wallpaperClock'),
+  clockTime: $('#clockTime'),
+  clockDate: $('#clockDate'),
+  clockWeekday: $('#clockWeekday'),
   syncModal: $('#syncModal'),
   syncIntro: $('#syncIntro'),
   syncProgress: $('#syncProgress'),
@@ -325,6 +331,54 @@ function toast(message, duration = 3600) {
   toastTimer = setTimeout(() => {
     els.toast.hidden = true;
   }, duration);
+}
+
+const CLOCK_MONTHS = [
+  'JANUARY',
+  'FEBRUARY',
+  'MARCH',
+  'APRIL',
+  'MAY',
+  'JUNE',
+  'JULY',
+  'AUGUST',
+  'SEPTEMBER',
+  'OCTOBER',
+  'NOVEMBER',
+  'DECEMBER',
+];
+const CLOCK_WEEKDAYS = [
+  'SUNDAY',
+  'MONDAY',
+  'TUESDAY',
+  'WEDNESDAY',
+  'THURSDAY',
+  'FRIDAY',
+  'SATURDAY',
+];
+let clockTimer = null;
+
+function updateWallpaperClock() {
+  if (!els.clockTime || !els.clockDate || !els.clockWeekday) return;
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const time = `${hh}:${mm}`;
+  const date = `${CLOCK_MONTHS[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+  const weekday = CLOCK_WEEKDAYS[now.getDay()];
+  if (els.clockTime.textContent !== time) els.clockTime.textContent = time;
+  if (els.clockDate.textContent !== date) els.clockDate.textContent = date;
+  if (els.clockWeekday.textContent !== weekday) els.clockWeekday.textContent = weekday;
+  els.wallpaperClock?.classList.add('is-ready');
+}
+
+function startWallpaperClock() {
+  if (!WALLPAPER_MODE || clockTimer) return;
+  updateWallpaperClock();
+  clockTimer = window.setInterval(updateWallpaperClock, 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) updateWallpaperClock();
+  });
 }
 
 function fmtInt(value) {
@@ -439,6 +493,28 @@ const map = new maplibregl.Map({
 
 map.addControl(new maplibregl.NavigationControl({ showCompass: false, showZoom: true }), 'top-right');
 map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }), 'bottom-left');
+
+const MAP_HANDLERS = [
+  map.dragPan,
+  map.scrollZoom,
+  map.boxZoom,
+  map.doubleClickZoom,
+  map.touchZoomRotate,
+  map.keyboard,
+];
+
+function setMapInteractive(interactive) {
+  if (state.mapInteractive === interactive) return;
+  state.mapInteractive = interactive;
+  document.body.classList.toggle('map-interactive', interactive);
+  for (const handler of MAP_HANDLERS) {
+    if (!handler) continue;
+    if (interactive) handler.enable();
+    else handler.disable();
+  }
+  const canvas = map.getCanvas();
+  if (canvas) canvas.style.cursor = interactive ? '' : 'default';
+}
 
 // Exposed only in ?debug=1 for local end-to-end checks.
 if (DEBUG) {
@@ -1112,6 +1188,7 @@ function applyTrackColor(hex, { persist = true } = {}) {
 let activePopup = null;
 
 map.on('click', 'track-line', (event) => {
+  if (!state.mapInteractive) return;
   const feature = event.features && event.features[0];
   if (!feature) return;
   const p = feature.properties;
@@ -1142,6 +1219,7 @@ map.on('click', 'track-line', (event) => {
 });
 
 map.on('mouseenter', 'track-line', () => {
+  if (!state.mapInteractive) return;
   map.getCanvas().style.cursor = 'pointer';
 });
 map.on('mouseleave', 'track-line', () => {
@@ -2150,13 +2228,34 @@ window.addEventListener('drop', (event) => {
   if (event.dataTransfer.files?.length) handleGpxFiles(event.dataTransfer.files);
 });
 
-const PANEL_POS_KEY = 'trailmap.panelPos';
+const PANEL_POS_KEY = 'trailmap.wallpaper.panelPos';
+const LAUNCHER_POS_KEY = 'trailmap.wallpaper.launcherPos';
 let panelDrag = null;
+let launcherDrag = null;
+let suppressLauncherClick = false;
 let panelAnimTimer = 0;
+let savedPanelPosition = readStoredPosition(PANEL_POS_KEY);
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+function readStoredPosition(key) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(key) || 'null');
+    return saved && Number.isFinite(saved.left) && Number.isFinite(saved.top) ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredPosition(key, left, top) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ left: Math.round(left), top: Math.round(top) }));
+  } catch {
+    /* ignore */
+  }
+}
+
 function applyPanelPosition(left, top, { persist = false } = {}) {
-  const margin = window.innerWidth <= 720 ? 10 : 8;
+  const margin = 8;
   const width = els.panel.offsetWidth || 316;
   const height = els.panel.offsetHeight || 400;
   const maxLeft = Math.max(margin, window.innerWidth - width - margin);
@@ -2171,45 +2270,66 @@ function applyPanelPosition(left, top, { persist = false } = {}) {
   els.panel.style.right = 'auto';
   els.panel.style.bottom = 'auto';
   if (persist) {
-    try {
-      localStorage.setItem(PANEL_POS_KEY, JSON.stringify({ left: x, top: y }));
-    } catch {
-      /* ignore */
-    }
+    savedPanelPosition = { left: x, top: y };
+    writeStoredPosition(PANEL_POS_KEY, x, y);
   }
 }
 
+function defaultPanelTop() {
+  return Math.max(18, Math.round((window.innerHeight - els.panel.offsetHeight) / 2));
+}
+
 function resetPanelPosition() {
-  els.panel.style.left = '';
-  els.panel.style.top = '';
-  els.panel.style.right = '';
-  els.panel.style.bottom = '';
+  savedPanelPosition = null;
   try {
     localStorage.removeItem(PANEL_POS_KEY);
   } catch {
     /* ignore */
   }
+  if (els.panel.hidden) return;
+  applyPanelPosition(18, defaultPanelTop(), { persist: false });
+}
+
+function applyLauncherPosition(left, top, { persist = false } = {}) {
+  const margin = 8;
+  const width = els.panelLauncher.offsetWidth || 42;
+  const height = els.panelLauncher.offsetHeight || 42;
+  const maxLeft = Math.max(margin, window.innerWidth - width - margin);
+  const maxTop = Math.max(margin, window.innerHeight - height - margin);
+  const x = Math.round(Math.min(Math.max(margin, left), maxLeft));
+  const y = Math.round(Math.min(Math.max(margin, top), maxTop));
+  els.panelLauncher.style.left = `${x}px`;
+  els.panelLauncher.style.top = `${y}px`;
+  els.panelLauncher.style.right = 'auto';
+  els.panelLauncher.style.bottom = 'auto';
+  if (persist) writeStoredPosition(LAUNCHER_POS_KEY, x, y);
+}
+
+function launcherCenter() {
+  const saved = readStoredPosition(LAUNCHER_POS_KEY);
+  const width = els.panelLauncher.offsetWidth || 42;
+  const height = els.panelLauncher.offsetHeight || 42;
+  const left = saved ? saved.left : window.innerWidth - 24 - width;
+  const top = saved ? saved.top : window.innerHeight - 24 - height;
+  return { x: left + width / 2, y: top + height / 2 };
 }
 
 function setPanelTransformOrigin(rect) {
-  const targetX = window.innerWidth <= 720 ? 10 : 18;
-  const targetY = window.innerWidth <= 720 ? 10 : 18;
-  els.panel.style.transformOrigin = `${targetX - rect.left}px ${targetY - rect.top}px`;
+  const target = launcherCenter();
+  els.panel.style.transformOrigin = `${target.x - rect.left}px ${target.y - rect.top}px`;
 }
 
 function hidePanel() {
   if (els.panel.hidden || panelAnimTimer) return;
-  const rect = els.panel.getBoundingClientRect();
-  if (rect.width && rect.height) {
-    try {
-      localStorage.setItem(
-        PANEL_POS_KEY,
-        JSON.stringify({ left: Math.round(rect.left), top: Math.round(rect.top) }),
-      );
-    } catch {
-      /* ignore */
-    }
+  setMapInteractive(false);
+  try {
+    map.stop();
+  } catch {
+    /* ignore */
   }
+  const rect = els.panel.getBoundingClientRect();
+  writeStoredPosition(PANEL_POS_KEY, rect.left, rect.top);
+  savedPanelPosition = { left: Math.round(rect.left), top: Math.round(rect.top) };
 
   const finish = () => {
     panelAnimTimer = 0;
@@ -2247,9 +2367,13 @@ function showPanel() {
   els.panel.classList.remove('is-minimizing');
   els.panelToggle.setAttribute('aria-expanded', 'true');
 
-  const rect = els.panel.getBoundingClientRect();
-  applyPanelPosition(rect.left, rect.top, { persist: false });
+  if (savedPanelPosition) {
+    applyPanelPosition(savedPanelPosition.left, savedPanelPosition.top, { persist: false });
+  } else {
+    applyPanelPosition(18, defaultPanelTop(), { persist: false });
+  }
   const placedRect = els.panel.getBoundingClientRect();
+  setMapInteractive(true);
 
   if (prefersReducedMotion) return;
   setPanelTransformOrigin(placedRect);
@@ -2265,6 +2389,78 @@ function showPanel() {
   );
 }
 
+
+function initLauncherDrag() {
+  els.panelLauncher.addEventListener('pointerdown', (event) => {
+    if (!event.isPrimary || event.button !== 0) return;
+    event.preventDefault();
+    const rect = els.panelLauncher.getBoundingClientRect();
+    launcherDrag = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      left: rect.left,
+      top: rect.top,
+      moved: false,
+    };
+    try {
+      els.panelLauncher.setPointerCapture(event.pointerId);
+    } catch {
+      /* ignore */
+    }
+
+    const onMove = (moveEvent) => {
+      if (!launcherDrag || moveEvent.pointerId !== launcherDrag.pointerId) return;
+      const dx = moveEvent.clientX - launcherDrag.startX;
+      const dy = moveEvent.clientY - launcherDrag.startY;
+      if (!launcherDrag.moved && Math.hypot(dx, dy) < 4) return;
+      launcherDrag.moved = true;
+      applyLauncherPosition(launcherDrag.left + dx, launcherDrag.top + dy, { persist: false });
+    };
+    const finish = (upEvent, open) => {
+      if (!launcherDrag || upEvent.pointerId !== launcherDrag.pointerId) return;
+      const wasMoved = launcherDrag.moved;
+      launcherDrag = null;
+      try {
+        els.panelLauncher.releasePointerCapture(upEvent.pointerId);
+      } catch {
+        /* ignore */
+      }
+      els.panelLauncher.removeEventListener('pointermove', onMove);
+      els.panelLauncher.removeEventListener('pointerup', onUp);
+      els.panelLauncher.removeEventListener('pointercancel', onCancel);
+      if (wasMoved) {
+        const rect2 = els.panelLauncher.getBoundingClientRect();
+        applyLauncherPosition(rect2.left, rect2.top, { persist: true });
+        suppressLauncherClick = true;
+        window.setTimeout(() => {
+          suppressLauncherClick = false;
+        }, 0);
+      } else if (open) {
+        showPanel();
+      }
+    };
+    const onUp = (upEvent) => finish(upEvent, true);
+    const onCancel = (upEvent) => finish(upEvent, false);
+    els.panelLauncher.addEventListener('pointermove', onMove);
+    els.panelLauncher.addEventListener('pointerup', onUp);
+    els.panelLauncher.addEventListener('pointercancel', onCancel);
+  });
+
+  els.panelLauncher.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    showPanel();
+  });
+
+  els.panelLauncher.addEventListener('click', () => {
+    if (suppressLauncherClick) {
+      suppressLauncherClick = false;
+      return;
+    }
+    if (els.panel.hidden) showPanel();
+  });
+}
 
 function initPanelDrag() {
   const head = els.panel.querySelector('.panel-head');
@@ -2324,27 +2520,25 @@ function initPanelDrag() {
   });
 }
 
-(function restorePanelPosition() {
-  let saved = null;
-  try {
-    saved = JSON.parse(localStorage.getItem(PANEL_POS_KEY) || 'null');
-  } catch {
-    saved = null;
-  }
-  if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
-    applyPanelPosition(saved.left, saved.top);
-  }
+(function restoreLauncherPosition() {
+  const saved = readStoredPosition(LAUNCHER_POS_KEY);
+  if (saved) applyLauncherPosition(saved.left, saved.top);
 })();
 
 initPanelDrag();
+initLauncherDrag();
 
 els.panelToggle.addEventListener('click', hidePanel);
-els.panelLauncher.addEventListener('click', showPanel);
 
 window.addEventListener('resize', () => {
-  if (els.panel.hidden) return;
-  const rect = els.panel.getBoundingClientRect();
-  applyPanelPosition(rect.left, rect.top, { persist: false });
+  if (!els.panel.hidden) {
+    const rect = els.panel.getBoundingClientRect();
+    applyPanelPosition(rect.left, rect.top, { persist: false });
+  }
+  if (!els.panelLauncher.hidden && readStoredPosition(LAUNCHER_POS_KEY)) {
+    const rect = els.panelLauncher.getBoundingClientRect();
+    applyLauncherPosition(rect.left, rect.top, { persist: false });
+  }
 });
 
 /* ------------------------------------------------------------------ */
@@ -2367,6 +2561,7 @@ function hideLoading() {
 }
 
 async function boot() {
+  startWallpaperClock();
   let savedBase = (() => {
     try {
       return localStorage.getItem(BASE_KEY) || localStorage.getItem('xingzhe.base');
@@ -2463,6 +2658,7 @@ async function boot() {
 
   try {
     await mapLoaded;
+    setMapInteractive(false);
     applyBasemap(state.base, { preserveView: false, persist: false });
     applyTrackColor(state.trackColor, { persist: false });
   } catch (err) {
@@ -2473,18 +2669,28 @@ async function boot() {
   map.jumpTo({ center: [104, 35], zoom: 3.4 });
 
   let hasStored = false;
-  try {
-    const stored = await loadDataset();
-    if (stored && Array.isArray(stored.features) && stored.features.length > 0) {
-      await applyDataset(stored, { persist: false, fit: true });
+  if (WALLPAPER_MODE && window.__WALLPAPER_DATA__) {
+    try {
+      await applyDataset(window.__WALLPAPER_DATA__, { persist: false, fit: true });
       hasStored = true;
-      if (!state.customName && stored.user?.name) {
-        setName(stored.user.name, { custom: false, persist: false });
-      }
+    } catch (err) {
+      console.error('[wallpaper] static data failed', err);
     }
-  } catch (err) {
-    console.warn('[store]', err);
-    toast('浏览器本地存储不可用，刷新后数据会丢失', 5000);
+  }
+  if (!hasStored) {
+    try {
+      const stored = await loadDataset();
+      if (stored && Array.isArray(stored.features) && stored.features.length > 0) {
+        await applyDataset(stored, { persist: false, fit: true });
+        hasStored = true;
+        if (!state.customName && stored.user?.name) {
+          setName(stored.user.name, { custom: false, persist: false });
+        }
+      }
+    } catch (err) {
+      console.warn('[store]', err);
+      toast('浏览器本地存储不可用，刷新后数据会丢失', 5000);
+    }
   }
 
   if (!hasStored) showEmptyUI();
@@ -2499,6 +2705,9 @@ async function boot() {
       .catch(() => {
         els.onboardExample.hidden = true;
       });
+  }
+  if (WALLPAPER_MODE && !hasStored) {
+    console.warn('[wallpaper] no static data; run node scripts/build-wallpaper.mjs');
   }
   hideLoading();
 }
