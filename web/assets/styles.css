@@ -78,6 +78,20 @@ button {
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.panel.is-dragging .panel-head {
+  cursor: grabbing;
+}
+
+.drag-grip {
+  color: #b4aa9d;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: -2px;
 }
 
 .eyebrow {
@@ -124,6 +138,9 @@ button {
   letter-spacing: -0.03em;
   outline: none;
   text-overflow: ellipsis;
+  cursor: text;
+  touch-action: auto;
+  user-select: text;
 }
 
 .name-input:hover {
@@ -146,7 +163,8 @@ button {
 }
 
 .panel-toggle {
-  display: none;
+  display: grid;
+  flex: 0 0 auto;
   width: 28px;
   height: 28px;
   border: 1px solid var(--line);
@@ -156,6 +174,27 @@ button {
   font-size: 16px;
   line-height: 1;
   place-items: center;
+  cursor: pointer;
+}
+
+.panel-launcher {
+  position: fixed;
+  z-index: 30;
+  top: 18px;
+  left: 18px;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(40, 32, 22, 0.1);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  font-size: 18px;
+  line-height: 1;
+  place-items: center;
+  cursor: pointer;
 }
 
 .stats {
@@ -732,6 +771,35 @@ input[type="range"] {
   gap: 8px;
 }
 
+.export-modal {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+}
+
+.ratio-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.quality-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.ratio-grid .scope-option span,
+.quality-grid .scope-option span {
+  padding: 8px 9px;
+  font-size: 11.5px;
+}
+
+.ratio-grid .scope-option span em,
+.quality-grid .scope-option span em {
+  font-size: 9.5px;
+}
+
 .scope-option input {
   position: absolute;
   opacity: 0;
@@ -1076,8 +1144,8 @@ input[type="range"] {
   .panel {
     top: 10px;
     left: 10px;
-    right: 10px;
-    width: auto;
+    right: auto;
+    width: calc(100vw - 20px);
     max-height: 62vh;
     padding: 14px;
   }
@@ -1090,12 +1158,9 @@ input[type="range"] {
     font-size: 25px;
   }
 
-  .panel-toggle {
-    display: grid;
-  }
-
-  .panel.is-collapsed .panel-body {
-    display: none;
+  .panel-launcher {
+    top: 10px;
+    left: 10px;
   }
 
   .panel-body {

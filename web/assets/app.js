@@ -253,6 +253,7 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 const els = {
   panel: $('#panel'),
   panelToggle: $('#panelToggle'),
+  panelLauncher: $('#panelLauncher'),
   nameInput: $('#nameInput'),
   rangeText: $('#rangeText'),
   statCount: $('#statCount'),
@@ -293,6 +294,7 @@ const els = {
   exportCancel: $('#exportCancel'),
   exportConfirm: $('#exportConfirm'),
   exportHeader: $('#exportHeader'),
+  exportSizeHint: $('#exportSizeHint'),
   updatedText: $('#updatedText'),
   syncModal: $('#syncModal'),
   syncIntro: $('#syncIntro'),
@@ -766,9 +768,18 @@ function boundsOf(features) {
 }
 
 function mapPadding() {
+  if (els.panel.hidden) {
+    return window.innerWidth <= 720
+      ? { top: 22, bottom: 64, left: 22, right: 22 }
+      : { top: 56, bottom: 56, left: 22, right: 22 };
+  }
   const panelRect = els.panel.getBoundingClientRect();
   if (window.innerWidth <= 720) {
-    return { top: Math.max(96, panelRect.bottom + 18), bottom: 64, left: 22, right: 22 };
+    const top = Math.min(
+      Math.max(96, panelRect.bottom + 18),
+      Math.round(window.innerHeight * 0.68),
+    );
+    return { top, bottom: 64, left: 22, right: 22 };
   }
   return { top: 56, bottom: 56, left: Math.max(360, panelRect.right + 26), right: 56 };
 }
@@ -1140,6 +1151,110 @@ map.on('mouseleave', 'track-line', () => {
 /* Export                                                              */
 /* ------------------------------------------------------------------ */
 
+const EXPORT_QUALITIES = {
+  standard: 3000,
+  high: 4800,
+  ultra: 7200,
+  poster: 9600,
+};
+const EXPORT_RATIOS = {
+  '1:1': 1,
+  '4:3': 4 / 3,
+  '3:2': 3 / 2,
+  '16:9': 16 / 9,
+  '9:16': 9 / 16,
+};
+const MAX_EXPORT_PIXELS = 60_000_000;
+
+function checkedValue(name, fallback) {
+  return document.querySelector(`input[name="${name}"]:checked`)?.value || fallback;
+}
+
+function naturalMapRatio(features) {
+  const bounds = boundsOf(features);
+  if (!bounds) return 4 / 3;
+  const width = Math.max(1e-9, ((bounds[1][0] - bounds[0][0]) * Math.PI) / 180);
+  const height = Math.max(1e-9, mercatorY(bounds[1][1]) - mercatorY(bounds[0][1]));
+  return width / height;
+}
+
+function computeExportLayout({ scope, ratioValue, qualityValue, withHeader, features }) {
+  const longEdge = EXPORT_QUALITIES[qualityValue] || EXPORT_QUALITIES.high;
+  let ratio = EXPORT_RATIOS[ratioValue];
+  if (!ratio) {
+    if (scope === 'view') {
+      const container = map.getContainer();
+      ratio = Math.max(1, container.clientWidth) / Math.max(1, container.clientHeight);
+    } else {
+      ratio = naturalMapRatio(features);
+    }
+  }
+  ratio = Math.max(0.1, Math.min(10, ratio));
+
+  let finalW;
+  let finalH;
+  if (ratio >= 1) {
+    finalW = longEdge;
+    finalH = Math.max(1, Math.round(longEdge / ratio));
+  } else {
+    finalH = longEdge;
+    finalW = Math.max(1, Math.round(longEdge * ratio));
+  }
+
+  let capped = false;
+  if (finalW * finalH > MAX_EXPORT_PIXELS) {
+    const scale = Math.sqrt(MAX_EXPORT_PIXELS / (finalW * finalH));
+    finalW = Math.max(1, Math.floor(finalW * scale));
+    finalH = Math.max(1, Math.floor(finalH * scale));
+    capped = true;
+  }
+
+  const scale = Math.max(1, finalW / 2200);
+  const headerHeight = withHeader ? Math.round(96 * scale) : 0;
+  const footerHeight = Math.round(30 * scale);
+  let mapH = finalH - headerHeight - footerHeight;
+  if (mapH < 240) {
+    mapH = 240;
+    finalH = mapH + headerHeight + footerHeight;
+  }
+
+  return {
+    finalW,
+    finalH,
+    mapW: finalW,
+    mapH,
+    headerHeight,
+    footerHeight,
+    scale,
+    ratio,
+    capped,
+  };
+}
+
+function updateExportHint() {
+  if (!els.exportSizeHint) return;
+  const features = filteredFeaturesForDatum();
+  if (!features.length) {
+    els.exportSizeHint.textContent = '当前筛选没有轨迹';
+    return;
+  }
+  const scope = checkedValue('exportScope', 'all');
+  const ratio = checkedValue('exportRatio', 'auto');
+  const quality = checkedValue('exportQuality', 'high');
+  const layout = computeExportLayout({
+    scope,
+    ratioValue: ratio,
+    qualityValue: quality,
+    withHeader: els.exportHeader.checked,
+    features,
+  });
+  const ratioLabel = ratio === 'auto' ? '自动比例' : ratio;
+  els.exportSizeHint.textContent =
+    `${scope === 'all' ? '全部轨迹' : '当前视图'} · ${ratioLabel} · ` +
+    `约 ${layout.finalW} × ${layout.finalH} px` +
+    (layout.capped ? '（已限制在 6000 万像素内）' : '');
+}
+
 function openExport() {
   if (!state.dataReady) {
     toast('轨迹还没有加载完成');
@@ -1148,6 +1263,7 @@ function openExport() {
   els.exportModal.hidden = false;
   els.exportConfirm.disabled = false;
   els.exportConfirm.textContent = '导出 PNG';
+  updateExportHint();
   $('#exportClose').focus();
 }
 
@@ -1285,7 +1401,7 @@ async function renderHiddenMap({ bounds, outW, outH, padding = 60, maxZoom = 14,
 
   try {
     await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('导出地图渲染超时')), 25000);
+      const timer = setTimeout(() => reject(new Error('导出地图渲染超时')), 45000);
       exportMap.once('load', () => {
         clearTimeout(timer);
         resolve();
@@ -1300,13 +1416,13 @@ async function renderHiddenMap({ bounds, outW, outH, padding = 60, maxZoom = 14,
         done = true;
         resolve();
       };
-      const timer = setTimeout(finish, 15000);
+      const timer = setTimeout(finish, 30000);
       exportMap.once('idle', () => {
         clearTimeout(timer);
         finish();
       });
     });
-    await sleep(500);
+    await sleep(700);
 
     const sourceCanvas = exportMap.getCanvas();
     const copy = document.createElement('canvas');
@@ -1321,53 +1437,47 @@ async function renderHiddenMap({ bounds, outW, outH, padding = 60, maxZoom = 14,
   }
 }
 
-async function renderFullMap(features) {
+async function renderFullMap(features, { ratio = 'auto', quality = 'high', withHeader = true } = {}) {
   const bounds = boundsOf(features);
   if (!bounds) throw new Error('当前没有轨迹可以导出');
-
-  const maxLat = bounds[1][1];
-  const w = Math.max(1e-7, ((bounds[1][0] - bounds[0][0]) * Math.PI) / 180);
-  const h = Math.max(1e-7, mercatorY(maxLat) - mercatorY(bounds[0][1]));
-
-  // 4800px wide for a crisp poster; height follows the track bounding box.
-  let outW = 4800;
-  let outH = Math.round(outW * (h / w));
-  if (outH > 3200) {
-    outH = 3200;
-    outW = Math.round(outH * (w / h));
-  }
-  if (outH < 1200) {
-    outH = 1200;
-    outW = Math.round(outH * (w / h));
-  }
-  outW = Math.min(4800, Math.max(1200, outW));
-  outH = Math.min(3200, Math.max(900, outH));
+  const layout = computeExportLayout({
+    scope: 'all',
+    ratioValue: ratio,
+    qualityValue: quality,
+    withHeader,
+    features,
+  });
 
   return renderHiddenMap({
     bounds,
-    outW,
-    outH,
+    outW: layout.mapW,
+    outH: layout.mapH,
     padding: 60,
     maxZoom: 14,
-    lineScale: Math.max(1.4, outW / 1800) * (state.widthScale || 1),
+    lineScale:
+      Math.max(1.2, Math.max(layout.mapW, layout.mapH) / 1800) * (state.widthScale || 1),
     features,
   });
 }
 
-async function renderViewMap(features) {
+async function renderViewMap(features, { ratio = 'auto', quality = 'high', withHeader = true } = {}) {
   const container = map.getContainer();
   const cw = Math.max(1, container.clientWidth);
   const ch = Math.max(1, container.clientHeight);
-  const renderScale = Math.min(2, 4800 / Math.max(cw, ch));
-  const outW = Math.max(1, Math.round(cw * renderScale));
-  const outH = Math.max(1, Math.round(ch * renderScale));
+  const layout = computeExportLayout({
+    scope: 'view',
+    ratioValue: ratio,
+    qualityValue: quality,
+    withHeader,
+    features,
+  });
   return renderHiddenMap({
     bounds: map.getBounds().toArray(),
-    outW,
-    outH,
+    outW: layout.mapW,
+    outH: layout.mapH,
     padding: 0,
     maxZoom: 18,
-    lineScale: renderScale * (state.widthScale || 1),
+    lineScale: Math.max(1, layout.mapW / cw, layout.mapH / ch) * (state.widthScale || 1),
     features,
   });
 }
@@ -1484,13 +1594,22 @@ function downloadCanvas(canvas) {
 
 async function doExport() {
   if (state.exportBusy) return;
-  const scope = document.querySelector('input[name="exportScope"]:checked')?.value || 'all';
+  const scope = checkedValue('exportScope', 'all');
+  const ratio = checkedValue('exportRatio', 'auto');
+  const quality = checkedValue('exportQuality', 'high');
   const withHeader = els.exportHeader.checked;
   const features = filteredFeaturesForDatum();
   if (!features.length) {
     toast('当前筛选没有轨迹');
     return;
   }
+  const layout = computeExportLayout({
+    scope,
+    ratioValue: ratio,
+    qualityValue: quality,
+    withHeader,
+    features,
+  });
 
   state.exportBusy = true;
   els.exportConfirm.disabled = true;
@@ -1501,14 +1620,22 @@ async function doExport() {
     let mapCanvas;
     if (scope === 'all') {
       els.exportConfirm.textContent = '正在绘制…';
-      mapCanvas = await renderFullMap(features);
+      mapCanvas = await renderFullMap(features, { ratio, quality, withHeader });
     } else {
-      mapCanvas = await renderViewMap(features);
+      mapCanvas = await renderViewMap(features, { ratio, quality, withHeader });
     }
     const output = composeImage(mapCanvas, { withHeader, features });
     if (DEBUG) {
       window.__lastExport = output;
-      window.__lastExportMeta = { width: output.width, height: output.height, scope, features: features.length };
+      window.__lastExportMeta = {
+        width: output.width,
+        height: output.height,
+        scope,
+        ratio,
+        quality,
+        expected: [layout.finalW, layout.finalH],
+        features: features.length,
+      };
     }
     await downloadCanvas(output);
     els.exportModal.hidden = true;
@@ -1934,6 +2061,11 @@ els.exportBtn.addEventListener('click', openExport);
 els.exportClose.addEventListener('click', closeExport);
 els.exportCancel.addEventListener('click', closeExport);
 els.exportConfirm.addEventListener('click', doExport);
+$$(
+  'input[name="exportScope"], input[name="exportRatio"], input[name="exportQuality"], #exportHeader',
+).forEach((input) => {
+  input.addEventListener('change', updateExportHint);
+});
 els.importBtn.addEventListener('click', openImportPicker);
 els.syncBtn.addEventListener('click', openSyncModal);
 els.clearBtn.addEventListener('click', clearData);
@@ -2013,27 +2145,152 @@ window.addEventListener('drop', (event) => {
   if (event.dataTransfer.files?.length) handleGpxFiles(event.dataTransfer.files);
 });
 
-const mobileQuery = window.matchMedia('(max-width: 720px)');
-function setPanelCollapsed(collapsed) {
-  els.panel.classList.toggle('is-collapsed', collapsed);
-  els.panelToggle.textContent = collapsed ? '+' : '−';
-  els.panelToggle.setAttribute('aria-expanded', String(!collapsed));
-  els.panelToggle.setAttribute('aria-label', collapsed ? '展开控制面板' : '收起控制面板');
-}
+const PANEL_POS_KEY = 'trailmap.panelPos';
+let panelDrag = null;
 
-els.panelToggle.addEventListener('click', () => {
-  setPanelCollapsed(!els.panel.classList.contains('is-collapsed'));
-});
-
-function syncPanelMode() {
-  if (mobileQuery.matches) {
-    setPanelCollapsed(true);
-  } else {
-    setPanelCollapsed(false);
+function applyPanelPosition(left, top, { persist = false } = {}) {
+  const margin = window.innerWidth <= 720 ? 10 : 8;
+  const width = els.panel.offsetWidth || 316;
+  const height = els.panel.offsetHeight || 400;
+  const maxLeft = Math.max(margin, window.innerWidth - width - margin);
+  const maxTop = Math.max(
+    margin,
+    window.innerHeight - Math.min(height, window.innerHeight - margin * 2) - margin,
+  );
+  const x = Math.round(Math.min(Math.max(margin, left), maxLeft));
+  const y = Math.round(Math.min(Math.max(margin, top), maxTop));
+  els.panel.style.left = `${x}px`;
+  els.panel.style.top = `${y}px`;
+  els.panel.style.right = 'auto';
+  els.panel.style.bottom = 'auto';
+  if (persist) {
+    try {
+      localStorage.setItem(PANEL_POS_KEY, JSON.stringify({ left: x, top: y }));
+    } catch {
+      /* ignore */
+    }
   }
 }
-syncPanelMode();
-mobileQuery.addEventListener('change', syncPanelMode);
+
+function resetPanelPosition() {
+  els.panel.style.left = '';
+  els.panel.style.top = '';
+  els.panel.style.right = '';
+  els.panel.style.bottom = '';
+  try {
+    localStorage.removeItem(PANEL_POS_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function hidePanel() {
+  const rect = els.panel.getBoundingClientRect();
+  if (rect.width && rect.height) {
+    try {
+      localStorage.setItem(
+        PANEL_POS_KEY,
+        JSON.stringify({ left: Math.round(rect.left), top: Math.round(rect.top) }),
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+  els.panel.hidden = true;
+  els.panelLauncher.hidden = false;
+  els.panelToggle.setAttribute('aria-expanded', 'false');
+}
+
+function showPanel() {
+  els.panel.hidden = false;
+  els.panelLauncher.hidden = true;
+  els.panelToggle.setAttribute('aria-expanded', 'true');
+  requestAnimationFrame(() => {
+    const rect = els.panel.getBoundingClientRect();
+    applyPanelPosition(rect.left, rect.top, { persist: false });
+  });
+}
+
+function initPanelDrag() {
+  const head = els.panel.querySelector('.panel-head');
+  if (!head) return;
+
+  head.addEventListener('pointerdown', (event) => {
+    if (!event.isPrimary || event.button !== 0) return;
+    if (event.target.closest('input, button, select, textarea, a, label')) return;
+    event.preventDefault();
+    const rect = els.panel.getBoundingClientRect();
+    panelDrag = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      left: rect.left,
+      top: rect.top,
+    };
+    els.panel.classList.add('is-dragging');
+    try {
+      head.setPointerCapture(event.pointerId);
+    } catch {
+      /* ignore */
+    }
+
+    const onMove = (moveEvent) => {
+      if (!panelDrag || moveEvent.pointerId !== panelDrag.pointerId) return;
+      moveEvent.preventDefault();
+      applyPanelPosition(
+        panelDrag.left + moveEvent.clientX - panelDrag.startX,
+        panelDrag.top + moveEvent.clientY - panelDrag.startY,
+        { persist: false },
+      );
+    };
+    const finish = (upEvent) => {
+      if (!panelDrag || upEvent.pointerId !== panelDrag.pointerId) return;
+      panelDrag = null;
+      els.panel.classList.remove('is-dragging');
+      try {
+        head.releasePointerCapture(upEvent.pointerId);
+      } catch {
+        /* ignore */
+      }
+      head.removeEventListener('pointermove', onMove);
+      head.removeEventListener('pointerup', finish);
+      head.removeEventListener('pointercancel', finish);
+      const finalRect = els.panel.getBoundingClientRect();
+      applyPanelPosition(finalRect.left, finalRect.top, { persist: true });
+    };
+    head.addEventListener('pointermove', onMove);
+    head.addEventListener('pointerup', finish);
+    head.addEventListener('pointercancel', finish);
+  });
+
+  head.addEventListener('dblclick', (event) => {
+    if (event.target.closest('input, button, select, textarea, a, label')) return;
+    resetPanelPosition();
+  });
+}
+
+(function restorePanelPosition() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(PANEL_POS_KEY) || 'null');
+  } catch {
+    saved = null;
+  }
+  if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
+    applyPanelPosition(saved.left, saved.top);
+  }
+})();
+
+initPanelDrag();
+
+els.panelToggle.addEventListener('click', hidePanel);
+els.panelLauncher.addEventListener('click', showPanel);
+
+window.addEventListener('resize', () => {
+  if (els.panel.hidden) return;
+  const rect = els.panel.getBoundingClientRect();
+  applyPanelPosition(rect.left, rect.top, { persist: false });
+});
 
 /* ------------------------------------------------------------------ */
 /* Boot                                                                */
