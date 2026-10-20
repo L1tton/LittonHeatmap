@@ -1209,14 +1209,14 @@ function computeExportLayout({ scope, ratioValue, qualityValue, withHeader, feat
     capped = true;
   }
 
-  const scale = Math.max(1, finalW / 2200);
-  const headerHeight = withHeader ? Math.round(96 * scale) : 0;
-  const footerHeight = Math.round(30 * scale);
+  const headerHeight = withHeader ? Math.round(finalH * 0.075) : 0;
+  const footerHeight = Math.round(finalH * 0.022);
   let mapH = finalH - headerHeight - footerHeight;
   if (mapH < 240) {
     mapH = 240;
     finalH = mapH + headerHeight + footerHeight;
   }
+  const fontScale = Math.max(1, finalH / 1200);
 
   return {
     finalW,
@@ -1225,7 +1225,7 @@ function computeExportLayout({ scope, ratioValue, qualityValue, withHeader, feat
     mapH,
     headerHeight,
     footerHeight,
-    scale,
+    fontScale,
     ratio,
     capped,
   };
@@ -1482,10 +1482,13 @@ async function renderViewMap(features, { ratio = 'auto', quality = 'high', withH
   });
 }
 
-function composeImage(mapCanvas, { withHeader, features }) {
-  const scale = Math.max(1, mapCanvas.width / 2200);
-  const headerHeight = withHeader ? Math.round(96 * scale) : 0;
-  const footerHeight = Math.round(30 * scale);
+function composeImage(mapCanvas, { withHeader, features, layout } = {}) {
+  const fallbackScale = Math.max(1, mapCanvas.width / 2200);
+  const headerHeight = withHeader
+    ? layout?.headerHeight ?? Math.round(96 * fallbackScale)
+    : 0;
+  const footerHeight = layout?.footerHeight ?? Math.round(30 * fallbackScale);
+  const scale = layout?.fontScale ?? fallbackScale;
   const canvas = document.createElement('canvas');
   canvas.width = mapCanvas.width;
   canvas.height = headerHeight + mapCanvas.height + footerHeight;
@@ -1516,7 +1519,8 @@ function composeImage(mapCanvas, { withHeader, features }) {
     ctx.textAlign = 'right';
     ctx.fillText('route atlas', canvas.width - Math.round(32 * scale), Math.round(40 * scale));
     ctx.fillStyle = '#e9e2d7';
-    ctx.fillRect(0, headerHeight - 1, canvas.width, 1);
+    const lineHeight = Math.max(1, Math.round(scale * 0.7));
+    ctx.fillRect(0, headerHeight - lineHeight, canvas.width, lineHeight);
   }
 
   ctx.drawImage(mapCanvas, 0, headerHeight);
@@ -1624,7 +1628,7 @@ async function doExport() {
     } else {
       mapCanvas = await renderViewMap(features, { ratio, quality, withHeader });
     }
-    const output = composeImage(mapCanvas, { withHeader, features });
+    const output = composeImage(mapCanvas, { withHeader, features, layout });
     if (DEBUG) {
       window.__lastExport = output;
       window.__lastExportMeta = {
@@ -2147,6 +2151,8 @@ window.addEventListener('drop', (event) => {
 
 const PANEL_POS_KEY = 'trailmap.panelPos';
 let panelDrag = null;
+let panelAnimTimer = 0;
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function applyPanelPosition(left, top, { persist = false } = {}) {
   const margin = window.innerWidth <= 720 ? 10 : 8;
@@ -2184,7 +2190,14 @@ function resetPanelPosition() {
   }
 }
 
+function setPanelTransformOrigin(rect) {
+  const targetX = window.innerWidth <= 720 ? 10 : 18;
+  const targetY = window.innerWidth <= 720 ? 10 : 18;
+  els.panel.style.transformOrigin = `${targetX - rect.left}px ${targetY - rect.top}px`;
+}
+
 function hidePanel() {
+  if (els.panel.hidden || panelAnimTimer) return;
   const rect = els.panel.getBoundingClientRect();
   if (rect.width && rect.height) {
     try {
@@ -2196,20 +2209,61 @@ function hidePanel() {
       /* ignore */
     }
   }
-  els.panel.hidden = true;
-  els.panelLauncher.hidden = false;
-  els.panelToggle.setAttribute('aria-expanded', 'false');
+
+  const finish = () => {
+    panelAnimTimer = 0;
+    els.panel.hidden = true;
+    els.panel.classList.remove('is-minimizing');
+    els.panel.style.transformOrigin = '';
+    els.panelLauncher.hidden = false;
+    els.panelToggle.setAttribute('aria-expanded', 'false');
+    if (!prefersReducedMotion) {
+      els.panelLauncher.classList.add('is-popping');
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => els.panelLauncher.classList.remove('is-popping'));
+      });
+    }
+  };
+
+  if (prefersReducedMotion) {
+    finish();
+    return;
+  }
+  setPanelTransformOrigin(rect);
+  els.panel.classList.add('is-minimizing');
+  panelAnimTimer = window.setTimeout(finish, 260);
 }
 
 function showPanel() {
-  els.panel.hidden = false;
+  if (!els.panel.hidden) return;
+  if (panelAnimTimer) {
+    clearTimeout(panelAnimTimer);
+    panelAnimTimer = 0;
+  }
   els.panelLauncher.hidden = true;
+  els.panelLauncher.classList.remove('is-popping');
+  els.panel.hidden = false;
+  els.panel.classList.remove('is-minimizing');
   els.panelToggle.setAttribute('aria-expanded', 'true');
-  requestAnimationFrame(() => {
-    const rect = els.panel.getBoundingClientRect();
-    applyPanelPosition(rect.left, rect.top, { persist: false });
-  });
+
+  const rect = els.panel.getBoundingClientRect();
+  applyPanelPosition(rect.left, rect.top, { persist: false });
+  const placedRect = els.panel.getBoundingClientRect();
+
+  if (prefersReducedMotion) return;
+  setPanelTransformOrigin(placedRect);
+  els.panel.animate(
+    [
+      { transform: 'scale(0.18)', opacity: 0 },
+      { transform: 'scale(1)', opacity: 1 },
+    ],
+    {
+      duration: 240,
+      easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+    },
+  );
 }
+
 
 function initPanelDrag() {
   const head = els.panel.querySelector('.panel-head');
