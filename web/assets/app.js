@@ -309,6 +309,7 @@ const els = {
   clockTime: $('#clockTime'),
   clockDate: $('#clockDate'),
   clockWeekday: $('#clockWeekday'),
+  clockTiltButtons: $('#clockTiltButtons'),
   syncModal: $('#syncModal'),
   syncIntro: $('#syncIntro'),
   syncProgress: $('#syncProgress'),
@@ -514,6 +515,45 @@ function initClockDrag() {
   els.clockGrip.addEventListener('dblclick', resetClockPosition);
 }
 
+const CLOCK_TILT_MODE_KEY = 'trailmap.wallpaper.clockTiltMode';
+
+function readClockTiltMode() {
+  try {
+    return localStorage.getItem(CLOCK_TILT_MODE_KEY) === 'line' ? 'line' : 'perChar';
+  } catch {
+    return 'perChar';
+  }
+}
+
+function applyClockTiltMode(mode, { persist = false } = {}) {
+  const next = mode === 'line' ? 'line' : 'perChar';
+  if (els.wallpaperClock) {
+    els.wallpaperClock.classList.toggle('line-tilt', next === 'line');
+  }
+  for (const button of els.clockTiltButtons?.querySelectorAll('[data-tilt]') || []) {
+    const active = button.dataset.tilt === next;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', String(active));
+  }
+  if (persist) {
+    try {
+      localStorage.setItem(CLOCK_TILT_MODE_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function initClockTiltControl() {
+  if (!els.clockTiltButtons) return;
+  els.clockTiltButtons.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-tilt]');
+    if (!button) return;
+    applyClockTiltMode(button.dataset.tilt, { persist: true });
+  });
+  applyClockTiltMode(readClockTiltMode());
+}
+
 (function restoreClockPosition() {
   let saved = null;
   try {
@@ -527,6 +567,7 @@ function initClockDrag() {
 })();
 
 initClockDrag();
+initClockTiltControl();
 
 function fmtInt(value) {
   const n = Number(value) || 0;
@@ -1264,7 +1305,7 @@ function updateAttribution() {
 }
 
 function updateBaseButtons() {
-  $$('.base-btn').forEach((button) => {
+  $$('.base-btn[data-base]').forEach((button) => {
     const active = button.dataset.base === state.base;
     button.classList.toggle('is-active', active);
     button.setAttribute('aria-pressed', String(active));
@@ -1272,7 +1313,7 @@ function updateBaseButtons() {
 }
 
 function updateAvailableBasemaps() {
-  $$('.base-btn').forEach((button) => {
+  $$('.base-btn[data-base]').forEach((button) => {
     if (button.dataset.base === 'terrain') {
       button.hidden = !state.tiandituEnabled;
     } else if (button.dataset.base === 'dark') {
