@@ -132,6 +132,33 @@
           <input id="opacity" type="range" min="8" max="60" step="1" value="55" />
         </div>
 
+        <div class="control clock-style-control">
+          <div class="label-row">
+            <span class="label">时间文字</span>
+            <button type="button" class="link-btn" id="clockStyleReset">恢复默认</button>
+          </div>
+
+          <div class="select-wrap clock-font-select">
+            <select id="clockFont" aria-label="时间字体">
+              <option value="serif">衬线字体</option>
+              <option value="sans">无衬线字体</option>
+              <option value="mono">等宽字体</option>
+            </select>
+          </div>
+
+          <div class="label-row clock-style-row">
+            <label class="label" for="clockScale">字号</label>
+            <span class="value" id="clockScaleValue">100%</span>
+          </div>
+          <input id="clockScale" type="range" min="60" max="150" step="5" value="100" />
+
+          <div class="label-row clock-style-row">
+            <label class="label" for="clockSpacing">字距</label>
+            <span class="value" id="clockSpacingValue">100%</span>
+          </div>
+          <input id="clockSpacing" type="range" min="50" max="150" step="5" value="100" />
+        </div>
+
         <div class="actions">
           <button type="button" class="btn primary" id="exportBtn" disabled>导出图片</button>
           <button type="button" class="btn ghost" id="fitBtn" disabled>全览</button>
