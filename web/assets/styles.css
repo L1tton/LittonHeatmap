@@ -8,6 +8,16 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Saira Stencil One";
+  src:
+    url("fonts/saira-stencil-one.woff2") format("woff2"),
+    url("fonts/saira-stencil-one.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --paper: #f3efe7;
   --paper-deep: #e8e1d5;
@@ -1457,32 +1467,32 @@ body.wallpaper-mode:not(.map-interactive) #map {
   border-radius: 2px;
   background: #f1ebdf;
   box-shadow:
-    0 3px 7px rgba(35, 30, 20, 0.16),
+    2px 3px 6px rgba(35, 30, 20, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  font-family: "Blackout 2AM", "Arial Black", Impact, sans-serif;
+  font-family: "Saira Stencil One", "Arial Black", Impact, sans-serif;
   font-weight: 400;
   color: #8ccfe3;
   -webkit-text-stroke: 0;
-  text-shadow: 0 1px 1px rgba(24, 62, 76, 0.18);
+  text-shadow: none;
 }
 
 .clock-time {
-  font-size: clamp(45px, 3.2vw, 62px);
-  line-height: 0.85;
+  font-size: clamp(42px, 2.9vw, 56px);
+  line-height: 0.9;
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
 }
 
 .clock-date {
-  font-size: clamp(38px, 2.5vw, 50px);
-  line-height: 0.9;
+  font-size: clamp(36px, 2.3vw, 46px);
+  line-height: 0.95;
   letter-spacing: 0.025em;
   margin-top: 0;
 }
 
 .clock-weekday {
-  font-size: clamp(32px, 2.2vw, 44px);
-  line-height: 0.9;
+  font-size: clamp(31px, 2.2vw, 44px);
+  line-height: 0.95;
   letter-spacing: 0.025em;
   margin-top: 0;
 }
@@ -1490,6 +1500,7 @@ body.wallpaper-mode:not(.map-interactive) #map {
 .clock-time .tilt-char,
 .clock-date .tilt-char,
 .clock-weekday .tilt-char {
+  position: relative;
   display: inline-block;
   margin: 0 0.018em;
   transform: translateY(var(--lift, 0)) rotate(var(--tilt, 0deg)) skewX(var(--skew, 0deg));
@@ -1501,7 +1512,7 @@ body.wallpaper-mode:not(.map-interactive) #map {
 }
 
 .wallpaper-clock.line-tilt .clock-time {
-  transform: rotate(-2.2deg) scaleX(0.95);
+  transform: rotate(-2.2deg) scaleX(0.88);
   transform-origin: 50% 50%;
 }
 
@@ -1524,6 +1535,7 @@ body.wallpaper-mode:not(.map-interactive) #map {
 .clock-weekday .tilt-space {
   width: 0.52em;
   margin: 0;
+  background: transparent;
   transform: none;
 }
 
@@ -1565,3 +1577,4 @@ body.wallpaper-mode:not(.map-interactive) #map {
     text-align: right;
   }
 }
+
