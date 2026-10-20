@@ -376,6 +376,7 @@ function renderTiltedText(el, text, { seed = 0, strength = 1 } = {}) {
   [...text].forEach((char, index) => {
     const span = document.createElement('span');
     span.className = 'tilt-char';
+    span.dataset.char = char;
     span.textContent = char;
     if (char === ' ') span.classList.add('tilt-space');
     if (char === ':') {
