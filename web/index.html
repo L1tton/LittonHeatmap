@@ -132,6 +132,23 @@
           <input id="opacity" type="range" min="8" max="60" step="1" value="55" />
         </div>
 
+        <div class="control">
+          <span class="label">时间倾斜</span>
+          <div
+            class="base-grid time-tilt-grid"
+            id="clockTiltButtons"
+            role="group"
+            aria-label="时间倾斜方式"
+          >
+            <button type="button" class="base-btn is-active" data-tilt="perChar" aria-pressed="true">
+              逐字不同
+            </button>
+            <button type="button" class="base-btn" data-tilt="line" aria-pressed="false">
+              整行同角
+            </button>
+          </div>
+        </div>
+
         <div class="actions">
           <button type="button" class="btn primary" id="exportBtn" disabled>导出图片</button>
           <button type="button" class="btn ghost" id="fitBtn" disabled>全览</button>
