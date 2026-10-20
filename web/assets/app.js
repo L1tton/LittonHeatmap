@@ -519,9 +519,9 @@ const CLOCK_TILT_MODE_KEY = 'trailmap.wallpaper.clockTiltMode';
 
 function readClockTiltMode() {
   try {
-    return localStorage.getItem(CLOCK_TILT_MODE_KEY) === 'line' ? 'line' : 'perChar';
+    return localStorage.getItem(CLOCK_TILT_MODE_KEY) === 'perChar' ? 'perChar' : 'line';
   } catch {
-    return 'perChar';
+    return 'line';
   }
 }
 
