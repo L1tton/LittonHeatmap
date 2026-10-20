@@ -29,6 +29,7 @@ const BASE_KEY = 'trailmap.base';
 const LABELS_KEY = 'trailmap.labels';
 const ROAD_DENSITY_KEY = 'trailmap.roadDensity';
 const ROAD_OPACITY_KEY = 'trailmap.roadOpacity';
+const WALLPAPER_CLEARED_KEY = 'trailmap.wallpaper.cleared';
 const ROAD_TILEJSON = 'https://tiles.openfreemap.org/planet';
 const MOTORWAY_ROAD_CLASSES = [
   'motorway',
@@ -282,6 +283,7 @@ const els = {
   exportBtn: $('#exportBtn'),
   importBtn: $('#importBtn'),
   wallpaperResetBtn: $('#wallpaperResetBtn'),
+  wallpaperClearBtn: $('#wallpaperClearBtn'),
   syncBtn: $('#syncBtn'),
   clearBtn: $('#clearBtn'),
   onboarding: $('#onboarding'),
@@ -303,6 +305,7 @@ const els = {
   exportSizeHint: $('#exportSizeHint'),
   updatedText: $('#updatedText'),
   wallpaperClock: $('#wallpaperClock'),
+  clockGrip: $('#clockGrip'),
   clockTime: $('#clockTime'),
   clockDate: $('#clockDate'),
   clockWeekday: $('#clockWeekday'),
@@ -424,11 +427,11 @@ function resetClockPosition() {
 }
 
 function initClockDrag() {
-  if (!els.wallpaperClock) return;
-  els.wallpaperClock.title = '拖动移动时间，双击复位';
+  if (!els.wallpaperClock || !els.clockGrip) return;
+  els.wallpaperClock.title = '拖动左上角把手移动时间，双击复位';
 
-  els.wallpaperClock.addEventListener('pointerdown', (event) => {
-    if (!event.isPrimary || event.button !== 0) return;
+  els.clockGrip.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
     event.preventDefault();
     const rect = els.wallpaperClock.getBoundingClientRect();
     clockDrag = {
@@ -441,7 +444,7 @@ function initClockDrag() {
     };
     els.wallpaperClock.classList.add('is-dragging');
     try {
-      els.wallpaperClock.setPointerCapture(event.pointerId);
+      els.clockGrip.setPointerCapture(event.pointerId);
     } catch {
       /* ignore */
     }
@@ -452,6 +455,7 @@ function initClockDrag() {
       const dy = moveEvent.clientY - clockDrag.startY;
       if (!clockDrag.moved && Math.hypot(dx, dy) < 4) return;
       clockDrag.moved = true;
+      moveEvent.preventDefault();
       applyClockPosition(clockDrag.left + dx, clockDrag.top + dy, { persist: false });
     };
     const finish = (upEvent) => {
@@ -460,34 +464,24 @@ function initClockDrag() {
       clockDrag = null;
       els.wallpaperClock.classList.remove('is-dragging');
       try {
-        els.wallpaperClock.releasePointerCapture(upEvent.pointerId);
+        els.clockGrip.releasePointerCapture(upEvent.pointerId);
       } catch {
         /* ignore */
       }
-      els.wallpaperClock.removeEventListener('pointermove', onMove);
-      els.wallpaperClock.removeEventListener('pointerup', finish);
-      els.wallpaperClock.removeEventListener('pointercancel', finish);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
       if (wasMoved) {
         const finalRect = els.wallpaperClock.getBoundingClientRect();
         applyClockPosition(finalRect.left, finalRect.top, { persist: true });
       }
     };
-    els.wallpaperClock.addEventListener('pointermove', onMove);
-    els.wallpaperClock.addEventListener('pointerup', finish);
-    els.wallpaperClock.addEventListener('pointercancel', finish);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
   });
 
-  els.wallpaperClock.addEventListener('dblclick', resetClockPosition);
-
-  els.wallpaperClock.addEventListener(
-    'wheel',
-    (event) => {
-      if (!state.mapInteractive) return;
-      event.preventDefault();
-      zoomMapBy(event.deltaY < 0 ? 0.35 : -0.35);
-    },
-    { passive: false },
-  );
+  els.clockGrip.addEventListener('dblclick', resetClockPosition);
 }
 
 (function restoreClockPosition() {
@@ -947,6 +941,20 @@ async function clearData() {
   if (!state.customName) setName('我的轨迹', { custom: false, persist: false });
   map.jumpTo({ center: [104, 35], zoom: 3.4 });
   toast('已清空');
+}
+
+async function clearWallpaperRoute() {
+  const ok = window.confirm('清除当前所有路线？可以用“恢复默认路线”恢复构建时的默认数据。');
+  if (!ok) return;
+  try {
+    await clearDataset();
+    localStorage.setItem(WALLPAPER_CLEARED_KEY, '1');
+  } catch (err) {
+    console.warn('[wallpaper] clear route failed', err);
+  }
+  showEmptyUI();
+  if (!state.customName) setName('我的轨迹', { custom: false, persist: false });
+  map.jumpTo({ center: [104, 35], zoom: 3.4 });
 }
 
 function getCollection(datum) {
@@ -1989,6 +1997,11 @@ async function handleGpxFiles(fileList) {
       { manifest, features: existing, user: { name: state.name }, source },
       { persist: true, source },
     );
+    try {
+      localStorage.removeItem(WALLPAPER_CLEARED_KEY);
+    } catch {
+      /* ignore */
+    }
     els.importModal.hidden = true;
     toast(`已导入 ${added} 条轨迹${failed ? `，${failed} 个文件失败` : ''}`);
   } catch (err) {
@@ -2304,11 +2317,13 @@ els.wallpaperResetBtn?.addEventListener('click', async () => {
   if (!window.__WALLPAPER_DATA__) return;
   try {
     await clearDataset();
+    localStorage.removeItem(WALLPAPER_CLEARED_KEY);
     await applyDataset(window.__WALLPAPER_DATA__, { persist: false, fit: true });
   } catch (err) {
     console.error('[wallpaper] reset route failed', err);
   }
 });
+els.wallpaperClearBtn?.addEventListener('click', clearWallpaperRoute);
 els.syncBtn.addEventListener('click', openSyncModal);
 els.clearBtn.addEventListener('click', clearData);
 els.onboardImport.addEventListener('click', openImportPicker);
@@ -2555,7 +2570,7 @@ function showPanel() {
 
 function initLauncherDrag() {
   els.panelLauncher.addEventListener('pointerdown', (event) => {
-    if (!event.isPrimary || event.button !== 0) return;
+    if (event.button !== 0) return;
     event.preventDefault();
     const rect = els.panelLauncher.getBoundingClientRect();
     launcherDrag = {
@@ -2578,6 +2593,7 @@ function initLauncherDrag() {
       const dy = moveEvent.clientY - launcherDrag.startY;
       if (!launcherDrag.moved && Math.hypot(dx, dy) < 4) return;
       launcherDrag.moved = true;
+      moveEvent.preventDefault();
       applyLauncherPosition(launcherDrag.left + dx, launcherDrag.top + dy, { persist: false });
     };
     const finish = (upEvent, open) => {
@@ -2589,9 +2605,9 @@ function initLauncherDrag() {
       } catch {
         /* ignore */
       }
-      els.panelLauncher.removeEventListener('pointermove', onMove);
-      els.panelLauncher.removeEventListener('pointerup', onUp);
-      els.panelLauncher.removeEventListener('pointercancel', onCancel);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
       if (wasMoved) {
         const rect2 = els.panelLauncher.getBoundingClientRect();
         applyLauncherPosition(rect2.left, rect2.top, { persist: true });
@@ -2605,9 +2621,9 @@ function initLauncherDrag() {
     };
     const onUp = (upEvent) => finish(upEvent, true);
     const onCancel = (upEvent) => finish(upEvent, false);
-    els.panelLauncher.addEventListener('pointermove', onMove);
-    els.panelLauncher.addEventListener('pointerup', onUp);
-    els.panelLauncher.addEventListener('pointercancel', onCancel);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
   });
 
   els.panelLauncher.addEventListener('keydown', (event) => {
@@ -2630,7 +2646,7 @@ function initPanelDrag() {
   if (!head) return;
 
   head.addEventListener('pointerdown', (event) => {
-    if (!event.isPrimary || event.button !== 0) return;
+    if (event.button !== 0) return;
     if (event.target.closest('input, button, select, textarea, a, label')) return;
     event.preventDefault();
     const rect = els.panel.getBoundingClientRect();
@@ -2666,15 +2682,15 @@ function initPanelDrag() {
       } catch {
         /* ignore */
       }
-      head.removeEventListener('pointermove', onMove);
-      head.removeEventListener('pointerup', finish);
-      head.removeEventListener('pointercancel', finish);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
       const finalRect = els.panel.getBoundingClientRect();
       applyPanelPosition(finalRect.left, finalRect.top, { persist: true });
     };
-    head.addEventListener('pointermove', onMove);
-    head.addEventListener('pointerup', finish);
-    head.addEventListener('pointercancel', finish);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
   });
 
   head.addEventListener('dblclick', (event) => {
@@ -2836,7 +2852,13 @@ async function boot() {
   map.jumpTo({ center: [104, 35], zoom: 3.4 });
 
   let hasStored = false;
-  if (WALLPAPER_MODE) {
+  let wallpaperCleared = false;
+  try {
+    wallpaperCleared = WALLPAPER_MODE && localStorage.getItem(WALLPAPER_CLEARED_KEY) === '1';
+  } catch {
+    wallpaperCleared = false;
+  }
+  if (WALLPAPER_MODE && !wallpaperCleared) {
     try {
       const stored = await loadDataset();
       if (stored && Array.isArray(stored.features) && stored.features.length > 0) {
@@ -2850,7 +2872,7 @@ async function boot() {
       console.warn('[store]', err);
     }
   }
-  if (!hasStored && WALLPAPER_MODE && window.__WALLPAPER_DATA__) {
+  if (!hasStored && WALLPAPER_MODE && !wallpaperCleared && window.__WALLPAPER_DATA__) {
     try {
       await applyDataset(window.__WALLPAPER_DATA__, { persist: false, fit: true });
       hasStored = true;
