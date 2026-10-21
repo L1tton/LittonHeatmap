@@ -539,7 +539,7 @@ function sourceLabel(source) {
 }
 
 function updateDocumentTitle() {
-  document.title = `${state.name} · 路线总和图`;
+  document.title = `${state.name} · LittonHeatmap轨迹图`;
 }
 
 function saveName() {
@@ -1510,7 +1510,7 @@ function composeImage(mapCanvas, { withHeader, features, layout } = {}) {
     ctx.fillStyle = '#726c63';
     ctx.font = `${Math.round(13 * scale)}px "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif`;
     ctx.fillText(
-      `路线总和图 · ${dateRangeOf(features)} · ${fmtInt(features.length)} 条记录 · ${fmtKm(km)} 公里`,
+      `LittonHeatmap轨迹图 · ${dateRangeOf(features)} · ${fmtInt(features.length)} 条记录 · ${fmtKm(km)} 公里`,
       Math.round(32 * scale),
       Math.round(69 * scale),
     );
