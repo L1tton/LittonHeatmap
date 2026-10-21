@@ -1,0 +1,40 @@
+{
+  "user": {
+    "id": 9925845,
+    "name": "L1tton"
+  },
+  "generatedAt": "2026-10-19T11:19:40.535Z",
+  "source": "https://www.imxingzhe.com",
+  "datum": "wgs84",
+  "stats": {
+    "activities": 52,
+    "distanceKm": 1690.8,
+    "firstDate": "2026-07-17",
+    "lastDate": "2026-10-17",
+    "years": [
+      2026
+    ],
+    "points": 13156
+  },
+  "years": [
+    {
+      "year": 2026,
+      "count": 52,
+      "distanceKm": 1690.8,
+      "points": 13156,
+      "file": "tracks-2026.json",
+      "bytes": 286155
+    }
+  ],
+  "skipped": {
+    "noGps": 0,
+    "parseFailed": 0,
+    "failed": 0,
+    "tooShort": 0,
+    "merged": 1,
+    "totalWorkouts": 53,
+    "notFetched": 0,
+    "emptyMonths": 174,
+    "monthErrors": 0
+  }
+}
