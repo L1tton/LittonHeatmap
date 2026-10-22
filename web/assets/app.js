@@ -295,13 +295,10 @@ const els = {
   exportConfirm: $('#exportConfirm'),
   exportHeader: $('#exportHeader'),
   exportScaleLineWidth: $('#exportScaleLineWidth'),
-  exportAllowUltra: $('#exportAllowUltra'),
-  exportUltraWarning: $('#exportUltraWarning'),
-  exportScaleTicks: $('#exportScaleTicks'),
-  exportScaleMin: $('#exportScaleMin'),
-  exportScaleMax: $('#exportScaleMax'),
-  exportLongEdge: $('#exportLongEdge'),
-  exportLongEdgeValue: $('#exportLongEdgeValue'),
+  exportEdgeValue: $('#exportEdgeValue'),
+  exportCustomRow: $('#exportCustomRow'),
+  exportCustomEdge: $('#exportCustomEdge'),
+  exportEdgeWarning: $('#exportEdgeWarning'),
   exportBaseScale: $('#exportBaseScale'),
   exportBaseScaleValue: $('#exportBaseScaleValue'),
   exportSizeHint: $('#exportSizeHint'),
@@ -1178,11 +1175,10 @@ function checkedValue(name, fallback) {
   return document.querySelector(`input[name="${name}"]:checked`)?.value || fallback;
 }
 
-function clampExportEdge(value, allowUltra = false) {
+function clampExportEdge(value) {
   const edge = Number(value);
   if (!Number.isFinite(edge)) return EXPORT_DEFAULT_EDGE;
-  const maxEdge = allowUltra ? EXPORT_MAX_EDGE : 9600;
-  return Math.max(EXPORT_MIN_EDGE, Math.min(maxEdge, Math.round(edge)));
+  return Math.max(EXPORT_MIN_EDGE, Math.min(EXPORT_MAX_EDGE, Math.round(edge)));
 }
 
 function naturalMapRatio(features) {
@@ -1193,8 +1189,8 @@ function naturalMapRatio(features) {
   return width / height;
 }
 
-function computeExportLayout({ scope, ratioValue, longEdge, allowUltra = false, withHeader, features }) {
-  const edge = clampExportEdge(longEdge, allowUltra);
+function computeExportLayout({ scope, ratioValue, longEdge, withHeader, features }) {
+  const edge = clampExportEdge(longEdge);
   let ratio = EXPORT_RATIOS[ratioValue];
   if (!ratio) {
     if (scope === 'view') {
@@ -1252,35 +1248,21 @@ function exportBaseScaleValue() {
   return Math.max(1, Math.min(4, Math.round(raw * 2) / 2));
 }
 
-function syncExportScaleUI() {
-  const allowUltra = Boolean(els.exportAllowUltra?.checked);
-  const minEdge = EXPORT_MIN_EDGE;
-  const maxEdge = allowUltra ? EXPORT_MAX_EDGE : 9600;
+function selectedExportQuality() {
+  return checkedValue('exportQuality', '4800');
+}
 
-  if (els.exportLongEdge) {
-    els.exportLongEdge.max = String(maxEdge);
-    if (!allowUltra && Number(els.exportLongEdge.value) > maxEdge) {
-      els.exportLongEdge.value = String(maxEdge);
-    }
-  }
-  if (els.exportScaleMin) els.exportScaleMin.textContent = String(minEdge);
-  if (els.exportScaleMax) els.exportScaleMax.textContent = String(maxEdge);
-  if (els.exportUltraWarning) els.exportUltraWarning.hidden = !allowUltra;
-
-  const ticks = els.exportScaleTicks?.querySelectorAll('[data-edge]') || [];
-  for (const tick of ticks) {
-    const edge = Number(tick.dataset.edge);
-    const visible = edge <= maxEdge;
-    tick.hidden = !visible;
-    if (!visible) continue;
-    const percent = ((edge - minEdge) / Math.max(1, maxEdge - minEdge)) * 100;
-    tick.style.left = `${Math.max(0, Math.min(100, percent))}%`;
-  }
+function currentExportEdge() {
+  const selected = selectedExportQuality();
+  if (selected === 'custom') return clampExportEdge(els.exportCustomEdge?.value);
+  return clampExportEdge(selected);
 }
 
 function updateExportHint() {
   if (!els.exportSizeHint) return;
-  syncExportScaleUI();
+  const selected = selectedExportQuality();
+  const isCustom = selected === 'custom';
+  if (els.exportCustomRow) els.exportCustomRow.hidden = !isCustom;
   const features = filteredFeaturesForDatum();
   if (!features.length) {
     els.exportSizeHint.textContent = '当前筛选没有轨迹';
@@ -1288,17 +1270,16 @@ function updateExportHint() {
   }
   const scope = checkedValue('exportScope', 'all');
   const ratio = checkedValue('exportRatio', 'auto');
-  const allowUltra = Boolean(els.exportAllowUltra?.checked);
-  const longEdge = clampExportEdge(els.exportLongEdge?.value, allowUltra);
+  const longEdge = currentExportEdge();
   const baseScale = exportBaseScaleValue();
   const scaleLineWidth = els.exportScaleLineWidth?.checked ?? true;
-  if (els.exportLongEdgeValue) els.exportLongEdgeValue.textContent = `长边 ${longEdge} px`;
+  if (els.exportEdgeValue) els.exportEdgeValue.textContent = `长边 ${longEdge} px`;
   if (els.exportBaseScaleValue) els.exportBaseScaleValue.textContent = `${baseScale.toFixed(1)}×`;
+  if (els.exportEdgeWarning) els.exportEdgeWarning.hidden = longEdge <= 9600;
   const layout = computeExportLayout({
     scope,
     ratioValue: ratio,
     longEdge,
-    allowUltra,
     withHeader: els.exportHeader.checked,
     features,
   });
@@ -1584,7 +1565,6 @@ async function renderFullMap(
   {
     ratio = 'auto',
     longEdge,
-    allowUltra = false,
     baseScale = 1,
     scaleLineWidth = true,
     withHeader = true,
@@ -1597,7 +1577,6 @@ async function renderFullMap(
     scope: 'all',
     ratioValue: ratio,
     longEdge,
-    allowUltra,
     withHeader,
     features,
   });
@@ -1622,7 +1601,6 @@ async function renderViewMap(
   {
     ratio = 'auto',
     longEdge,
-    allowUltra = false,
     baseScale = 1,
     scaleLineWidth = true,
     withHeader = true,
@@ -1636,7 +1614,6 @@ async function renderViewMap(
     scope: 'view',
     ratioValue: ratio,
     longEdge,
-    allowUltra,
     withHeader,
     features,
   });
@@ -1772,8 +1749,7 @@ async function doExport() {
   if (state.exportBusy) return;
   const scope = checkedValue('exportScope', 'all');
   const ratio = checkedValue('exportRatio', 'auto');
-  const longEdge = clampExportEdge(els.exportLongEdge?.value, Boolean(els.exportAllowUltra?.checked));
-  const allowUltra = Boolean(els.exportAllowUltra?.checked);
+  const longEdge = currentExportEdge();
   const baseScale = exportBaseScaleValue();
   const scaleLineWidth = els.exportScaleLineWidth?.checked ?? true;
   const withHeader = els.exportHeader.checked;
@@ -1786,7 +1762,6 @@ async function doExport() {
     scope,
     ratioValue: ratio,
     longEdge,
-    allowUltra,
     withHeader,
     features,
   });
@@ -1807,7 +1782,6 @@ async function doExport() {
       mapCanvas = await renderFullMap(features, {
         ratio,
         longEdge,
-        allowUltra,
         baseScale,
         scaleLineWidth,
         withHeader,
@@ -1817,7 +1791,6 @@ async function doExport() {
       mapCanvas = await renderViewMap(features, {
         ratio,
         longEdge,
-        allowUltra,
         baseScale,
         scaleLineWidth,
         withHeader,
@@ -2264,10 +2237,15 @@ els.exportClose.addEventListener('click', closeExport);
 els.exportCancel.addEventListener('click', closeExport);
 els.exportConfirm.addEventListener('click', doExport);
 $$(
-  'input[name="exportScope"], input[name="exportRatio"], #exportHeader, #exportScaleLineWidth, #exportAllowUltra, #exportLongEdge, #exportBaseScale',
+  'input[name="exportScope"], input[name="exportRatio"], input[name="exportQuality"], #exportCustomEdge, #exportHeader, #exportScaleLineWidth, #exportBaseScale',
 ).forEach((input) => {
   input.addEventListener('input', updateExportHint);
   input.addEventListener('change', updateExportHint);
+});
+
+els.exportCustomEdge?.addEventListener('input', () => {
+  const custom = document.querySelector('input[name="exportQuality"][value="custom"]');
+  if (custom) custom.checked = true;
 });
 els.importBtn.addEventListener('click', openImportPicker);
 els.syncBtn.addEventListener('click', openSyncModal);
