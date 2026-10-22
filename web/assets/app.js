@@ -295,6 +295,11 @@ const els = {
   exportConfirm: $('#exportConfirm'),
   exportHeader: $('#exportHeader'),
   exportScaleLineWidth: $('#exportScaleLineWidth'),
+  exportAllowUltra: $('#exportAllowUltra'),
+  exportUltraWarning: $('#exportUltraWarning'),
+  exportScaleTicks: $('#exportScaleTicks'),
+  exportScaleMin: $('#exportScaleMin'),
+  exportScaleMax: $('#exportScaleMax'),
   exportLongEdge: $('#exportLongEdge'),
   exportLongEdgeValue: $('#exportLongEdgeValue'),
   exportBaseScale: $('#exportBaseScale'),
@@ -1173,10 +1178,11 @@ function checkedValue(name, fallback) {
   return document.querySelector(`input[name="${name}"]:checked`)?.value || fallback;
 }
 
-function clampExportEdge(value) {
+function clampExportEdge(value, allowUltra = false) {
   const edge = Number(value);
   if (!Number.isFinite(edge)) return EXPORT_DEFAULT_EDGE;
-  return Math.max(EXPORT_MIN_EDGE, Math.min(EXPORT_MAX_EDGE, Math.round(edge)));
+  const maxEdge = allowUltra ? EXPORT_MAX_EDGE : 9600;
+  return Math.max(EXPORT_MIN_EDGE, Math.min(maxEdge, Math.round(edge)));
 }
 
 function naturalMapRatio(features) {
@@ -1187,8 +1193,8 @@ function naturalMapRatio(features) {
   return width / height;
 }
 
-function computeExportLayout({ scope, ratioValue, longEdge, withHeader, features }) {
-  const edge = clampExportEdge(longEdge);
+function computeExportLayout({ scope, ratioValue, longEdge, allowUltra = false, withHeader, features }) {
+  const edge = clampExportEdge(longEdge, allowUltra);
   let ratio = EXPORT_RATIOS[ratioValue];
   if (!ratio) {
     if (scope === 'view') {
@@ -1246,8 +1252,35 @@ function exportBaseScaleValue() {
   return Math.max(1, Math.min(4, Math.round(raw * 2) / 2));
 }
 
+function syncExportScaleUI() {
+  const allowUltra = Boolean(els.exportAllowUltra?.checked);
+  const minEdge = EXPORT_MIN_EDGE;
+  const maxEdge = allowUltra ? EXPORT_MAX_EDGE : 9600;
+
+  if (els.exportLongEdge) {
+    els.exportLongEdge.max = String(maxEdge);
+    if (!allowUltra && Number(els.exportLongEdge.value) > maxEdge) {
+      els.exportLongEdge.value = String(maxEdge);
+    }
+  }
+  if (els.exportScaleMin) els.exportScaleMin.textContent = String(minEdge);
+  if (els.exportScaleMax) els.exportScaleMax.textContent = String(maxEdge);
+  if (els.exportUltraWarning) els.exportUltraWarning.hidden = !allowUltra;
+
+  const ticks = els.exportScaleTicks?.querySelectorAll('[data-edge]') || [];
+  for (const tick of ticks) {
+    const edge = Number(tick.dataset.edge);
+    const visible = edge <= maxEdge;
+    tick.hidden = !visible;
+    if (!visible) continue;
+    const percent = ((edge - minEdge) / Math.max(1, maxEdge - minEdge)) * 100;
+    tick.style.left = `${Math.max(0, Math.min(100, percent))}%`;
+  }
+}
+
 function updateExportHint() {
   if (!els.exportSizeHint) return;
+  syncExportScaleUI();
   const features = filteredFeaturesForDatum();
   if (!features.length) {
     els.exportSizeHint.textContent = '当前筛选没有轨迹';
@@ -1255,7 +1288,8 @@ function updateExportHint() {
   }
   const scope = checkedValue('exportScope', 'all');
   const ratio = checkedValue('exportRatio', 'auto');
-  const longEdge = clampExportEdge(els.exportLongEdge?.value);
+  const allowUltra = Boolean(els.exportAllowUltra?.checked);
+  const longEdge = clampExportEdge(els.exportLongEdge?.value, allowUltra);
   const baseScale = exportBaseScaleValue();
   const scaleLineWidth = els.exportScaleLineWidth?.checked ?? true;
   if (els.exportLongEdgeValue) els.exportLongEdgeValue.textContent = `长边 ${longEdge} px`;
@@ -1264,6 +1298,7 @@ function updateExportHint() {
     scope,
     ratioValue: ratio,
     longEdge,
+    allowUltra,
     withHeader: els.exportHeader.checked,
     features,
   });
@@ -1463,9 +1498,13 @@ async function renderHiddenMap({
     view.center.lat,
   ]);
   const renderZoom = view.zoom + Math.log2(scale);
-  const renderTile = Math.min(8192, Math.max(1, Math.round(EXPORT_TILE_SIZE * scale)));
-  const cols = Math.ceil(outW / EXPORT_TILE_SIZE);
-  const rows = Math.ceil(outH / EXPORT_TILE_SIZE);
+  const tileSize = Math.max(
+    256,
+    Math.min(EXPORT_TILE_SIZE, Math.floor(4096 / scale)),
+  );
+  const renderTile = Math.max(1, Math.round(tileSize * scale));
+  const cols = Math.ceil(outW / tileSize);
+  const rows = Math.ceil(outH / tileSize);
   const total = cols * rows;
 
   const holder = document.createElement('div');
@@ -1508,10 +1547,10 @@ async function renderHiddenMap({
     let rendered = 0;
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {
-        const x = col * EXPORT_TILE_SIZE;
-        const y = row * EXPORT_TILE_SIZE;
-        const tw = Math.min(EXPORT_TILE_SIZE, outW - x);
-        const th = Math.min(EXPORT_TILE_SIZE, outH - y);
+        const x = col * tileSize;
+        const y = row * tileSize;
+        const tw = Math.min(tileSize, outW - x);
+        const th = Math.min(tileSize, outH - y);
         const dx = x + tw / 2 - outW / 2;
         const dy = y + th / 2 - outH / 2;
         const tileCenter = new maplibregl.MercatorCoordinate(
@@ -1545,6 +1584,7 @@ async function renderFullMap(
   {
     ratio = 'auto',
     longEdge,
+    allowUltra = false,
     baseScale = 1,
     scaleLineWidth = true,
     withHeader = true,
@@ -1557,6 +1597,7 @@ async function renderFullMap(
     scope: 'all',
     ratioValue: ratio,
     longEdge,
+    allowUltra,
     withHeader,
     features,
   });
@@ -1581,6 +1622,7 @@ async function renderViewMap(
   {
     ratio = 'auto',
     longEdge,
+    allowUltra = false,
     baseScale = 1,
     scaleLineWidth = true,
     withHeader = true,
@@ -1594,6 +1636,7 @@ async function renderViewMap(
     scope: 'view',
     ratioValue: ratio,
     longEdge,
+    allowUltra,
     withHeader,
     features,
   });
@@ -1729,7 +1772,8 @@ async function doExport() {
   if (state.exportBusy) return;
   const scope = checkedValue('exportScope', 'all');
   const ratio = checkedValue('exportRatio', 'auto');
-  const longEdge = clampExportEdge(els.exportLongEdge?.value);
+  const longEdge = clampExportEdge(els.exportLongEdge?.value, Boolean(els.exportAllowUltra?.checked));
+  const allowUltra = Boolean(els.exportAllowUltra?.checked);
   const baseScale = exportBaseScaleValue();
   const scaleLineWidth = els.exportScaleLineWidth?.checked ?? true;
   const withHeader = els.exportHeader.checked;
@@ -1742,6 +1786,7 @@ async function doExport() {
     scope,
     ratioValue: ratio,
     longEdge,
+    allowUltra,
     withHeader,
     features,
   });
@@ -1762,6 +1807,7 @@ async function doExport() {
       mapCanvas = await renderFullMap(features, {
         ratio,
         longEdge,
+        allowUltra,
         baseScale,
         scaleLineWidth,
         withHeader,
@@ -1771,6 +1817,7 @@ async function doExport() {
       mapCanvas = await renderViewMap(features, {
         ratio,
         longEdge,
+        allowUltra,
         baseScale,
         scaleLineWidth,
         withHeader,
@@ -2217,7 +2264,7 @@ els.exportClose.addEventListener('click', closeExport);
 els.exportCancel.addEventListener('click', closeExport);
 els.exportConfirm.addEventListener('click', doExport);
 $$(
-  'input[name="exportScope"], input[name="exportRatio"], #exportHeader, #exportScaleLineWidth, #exportLongEdge, #exportBaseScale',
+  'input[name="exportScope"], input[name="exportRatio"], #exportHeader, #exportScaleLineWidth, #exportAllowUltra, #exportLongEdge, #exportBaseScale',
 ).forEach((input) => {
   input.addEventListener('input', updateExportHint);
   input.addEventListener('change', updateExportHint);
