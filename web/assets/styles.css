@@ -815,6 +815,36 @@ input[type="range"] {
   gap: 6px;
 }
 
+.export-scale-ticks {
+  position: relative;
+  height: 15px;
+  margin-top: 2px;
+  color: var(--faint);
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.export-scale-ticks span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.export-scale-ticks span:first-child {
+  transform: translateX(0);
+}
+
+.export-scale-ticks span:last-child {
+  transform: translateX(-100%);
+}
+
+.export-warning {
+  margin-top: 5px;
+  color: var(--accent-dark);
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+
 .ratio-grid .scope-option span,
 .quality-grid .scope-option span {
   padding: 8px 9px;
