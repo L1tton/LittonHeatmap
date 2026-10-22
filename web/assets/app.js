@@ -1398,6 +1398,7 @@ async function renderHiddenMap({ bounds, outW, outH, padding = 60, maxZoom = 14,
     preserveDrawingBuffer: true,
     fadeDuration: 0,
     pixelRatio: 1,
+    antialias: true,
   });
 
   try {
