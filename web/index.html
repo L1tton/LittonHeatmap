@@ -236,9 +236,22 @@
             <label class="label" for="exportLongEdge">清晰度</label>
             <span class="value" id="exportLongEdgeValue">长边 4800 px</span>
           </div>
-          <input id="exportLongEdge" type="range" min="2000" max="16000" step="200" value="4800" />
-          <div class="range-hint"><span>2000</span><span>16000</span></div>
+          <input id="exportLongEdge" type="range" min="2000" max="9600" step="200" value="4800" />
+          <div class="range-hint"><span id="exportScaleMin">2000</span><span id="exportScaleMax">9600</span></div>
+          <div class="export-scale-ticks" id="exportScaleTicks" aria-hidden="true">
+            <span data-edge="3000">标准 3000</span>
+            <span data-edge="4800">高清 4800</span>
+            <span data-edge="7200">超清 7200</span>
+            <span data-edge="9600">海报 9600</span>
+          </div>
         </div>
+        <label class="check-row">
+          <input type="checkbox" id="exportAllowUltra" />
+          <span>允许超过 9600px 分辨率</span>
+        </label>
+        <p class="modal-note export-warning" id="exportUltraWarning" hidden>
+          允许更高分辨率会显著增加文件体积和导出时间，低配电脑可能导出失败。
+        </p>
         <div class="field">
           <div class="label-row">
             <label class="label" for="exportBaseScale">底图缩放</label>
