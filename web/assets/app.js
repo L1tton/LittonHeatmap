@@ -294,6 +294,7 @@ const els = {
   exportCancel: $('#exportCancel'),
   exportConfirm: $('#exportConfirm'),
   exportHeader: $('#exportHeader'),
+  exportScaleLineWidth: $('#exportScaleLineWidth'),
   exportLongEdge: $('#exportLongEdge'),
   exportLongEdgeValue: $('#exportLongEdgeValue'),
   exportBaseScale: $('#exportBaseScale'),
@@ -1157,7 +1158,7 @@ map.on('mouseleave', 'track-line', () => {
 /* ------------------------------------------------------------------ */
 
 const EXPORT_MIN_EDGE = 2000;
-const EXPORT_MAX_EDGE = 9600;
+const EXPORT_MAX_EDGE = 16000;
 const EXPORT_DEFAULT_EDGE = 4800;
 const EXPORT_RATIOS = {
   '1:1': 1,
@@ -1166,7 +1167,7 @@ const EXPORT_RATIOS = {
   '16:9': 16 / 9,
   '9:16': 9 / 16,
 };
-const MAX_EXPORT_PIXELS = 60_000_000;
+const MAX_EXPORT_PIXELS = 120_000_000;
 
 function checkedValue(name, fallback) {
   return document.querySelector(`input[name="${name}"]:checked`)?.value || fallback;
@@ -1242,7 +1243,7 @@ function computeExportLayout({ scope, ratioValue, longEdge, withHeader, features
 function exportBaseScaleValue() {
   const raw = Number(els.exportBaseScale?.value);
   if (!Number.isFinite(raw)) return 1;
-  return Math.max(1, Math.min(2, Math.round(raw * 10) / 10));
+  return Math.max(1, Math.min(4, Math.round(raw * 2) / 2));
 }
 
 function updateExportHint() {
@@ -1256,6 +1257,7 @@ function updateExportHint() {
   const ratio = checkedValue('exportRatio', 'auto');
   const longEdge = clampExportEdge(els.exportLongEdge?.value);
   const baseScale = exportBaseScaleValue();
+  const scaleLineWidth = els.exportScaleLineWidth?.checked ?? true;
   if (els.exportLongEdgeValue) els.exportLongEdgeValue.textContent = `长边 ${longEdge} px`;
   if (els.exportBaseScaleValue) els.exportBaseScaleValue.textContent = `${baseScale.toFixed(1)}×`;
   const layout = computeExportLayout({
@@ -1269,7 +1271,8 @@ function updateExportHint() {
   els.exportSizeHint.textContent =
     `${scope === 'all' ? '全部轨迹' : '当前视图'} · ${ratioLabel} · ` +
     `约 ${layout.finalW} × ${layout.finalH} px · 底图 ${baseScale.toFixed(1)}×` +
-    (layout.capped ? '（已限制在 6000 万像素内）' : '');
+    (scaleLineWidth ? ' · 线宽随超采样' : '') +
+    (layout.capped ? '（已限制在 1.2 亿像素内）' : '');
 }
 
 function openExport() {
@@ -1449,9 +1452,10 @@ async function renderHiddenMap({
   lineScale = 1,
   features,
   baseScale = 1,
+  scaleLineWidth = true,
   onProgress,
 }) {
-  const scale = Math.max(1, Math.min(2, Number(baseScale) || 1));
+  const scale = Math.max(1, Math.min(4, Number(baseScale) || 1));
   const view = exportViewForBounds(bounds, outW, outH, padding, maxZoom);
   const fullWorld = 512 * 2 ** view.zoom;
   const centerMc = maplibregl.MercatorCoordinate.fromLngLat([
@@ -1459,7 +1463,7 @@ async function renderHiddenMap({
     view.center.lat,
   ]);
   const renderZoom = view.zoom + Math.log2(scale);
-  const renderTile = Math.max(1, Math.round(EXPORT_TILE_SIZE * scale));
+  const renderTile = Math.min(8192, Math.max(1, Math.round(EXPORT_TILE_SIZE * scale)));
   const cols = Math.ceil(outW / EXPORT_TILE_SIZE);
   const rows = Math.ceil(outH / EXPORT_TILE_SIZE);
   const total = cols * rows;
@@ -1473,7 +1477,7 @@ async function renderHiddenMap({
     style: buildExportStyle(
       state.base,
       { type: 'FeatureCollection', features },
-      { lineScale: lineScale * scale },
+      { lineScale: lineScale * (scaleLineWidth ? scale : 1) },
     ),
     center: view.center,
     zoom: renderZoom,
@@ -1538,7 +1542,14 @@ async function renderHiddenMap({
 
 async function renderFullMap(
   features,
-  { ratio = 'auto', longEdge, baseScale = 1, withHeader = true, onProgress } = {},
+  {
+    ratio = 'auto',
+    longEdge,
+    baseScale = 1,
+    scaleLineWidth = true,
+    withHeader = true,
+    onProgress,
+  } = {},
 ) {
   const bounds = boundsOf(features);
   if (!bounds) throw new Error('当前没有轨迹可以导出');
@@ -1560,13 +1571,21 @@ async function renderFullMap(
       Math.max(1.2, Math.max(layout.mapW, layout.mapH) / 1800) * (state.widthScale || 1),
     features,
     baseScale,
+    scaleLineWidth,
     onProgress,
   });
 }
 
 async function renderViewMap(
   features,
-  { ratio = 'auto', longEdge, baseScale = 1, withHeader = true, onProgress } = {},
+  {
+    ratio = 'auto',
+    longEdge,
+    baseScale = 1,
+    scaleLineWidth = true,
+    withHeader = true,
+    onProgress,
+  } = {},
 ) {
   const container = map.getContainer();
   const cw = Math.max(1, container.clientWidth);
@@ -1587,6 +1606,7 @@ async function renderViewMap(
     lineScale: Math.max(1, layout.mapW / cw, layout.mapH / ch) * (state.widthScale || 1),
     features,
     baseScale,
+    scaleLineWidth,
     onProgress,
   });
 }
@@ -1711,6 +1731,7 @@ async function doExport() {
   const ratio = checkedValue('exportRatio', 'auto');
   const longEdge = clampExportEdge(els.exportLongEdge?.value);
   const baseScale = exportBaseScaleValue();
+  const scaleLineWidth = els.exportScaleLineWidth?.checked ?? true;
   const withHeader = els.exportHeader.checked;
   const features = filteredFeaturesForDatum();
   if (!features.length) {
@@ -1742,6 +1763,7 @@ async function doExport() {
         ratio,
         longEdge,
         baseScale,
+        scaleLineWidth,
         withHeader,
         onProgress,
       });
@@ -1750,6 +1772,7 @@ async function doExport() {
         ratio,
         longEdge,
         baseScale,
+        scaleLineWidth,
         withHeader,
         onProgress,
       });
@@ -1764,6 +1787,7 @@ async function doExport() {
         ratio,
         longEdge,
         baseScale,
+        scaleLineWidth,
         expected: [layout.finalW, layout.finalH],
         features: features.length,
       };
@@ -2193,7 +2217,7 @@ els.exportClose.addEventListener('click', closeExport);
 els.exportCancel.addEventListener('click', closeExport);
 els.exportConfirm.addEventListener('click', doExport);
 $$(
-  'input[name="exportScope"], input[name="exportRatio"], #exportHeader, #exportLongEdge, #exportBaseScale',
+  'input[name="exportScope"], input[name="exportRatio"], #exportHeader, #exportScaleLineWidth, #exportLongEdge, #exportBaseScale',
 ).forEach((input) => {
   input.addEventListener('input', updateExportHint);
   input.addEventListener('change', updateExportHint);
