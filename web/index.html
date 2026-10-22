@@ -233,25 +233,53 @@
         </div>
         <div class="field">
           <div class="label-row">
-            <label class="label" for="exportLongEdge">清晰度</label>
-            <span class="value" id="exportLongEdgeValue">长边 4800 px</span>
+            <span class="label">清晰度</span>
+            <span class="value" id="exportEdgeValue">长边 4800 px</span>
           </div>
-          <input id="exportLongEdge" type="range" min="2000" max="9600" step="200" value="4800" />
-          <div class="range-hint"><span id="exportScaleMin">2000</span><span id="exportScaleMax">9600</span></div>
-          <div class="export-scale-ticks" id="exportScaleTicks" aria-hidden="true">
-            <span data-edge="3000">标准 3000</span>
-            <span data-edge="4800">高清 4800</span>
-            <span data-edge="7200">超清 7200</span>
-            <span data-edge="9600">海报 9600</span>
+          <div class="quality-grid export-quality-grid" id="exportQuality" role="group" aria-label="导出清晰度">
+            <label class="scope-option">
+              <input type="radio" name="exportQuality" value="3000" />
+              <span>标准<em>长边 3000</em></span>
+            </label>
+            <label class="scope-option">
+              <input type="radio" name="exportQuality" value="4800" checked />
+              <span>高清<em>长边 4800</em></span>
+            </label>
+            <label class="scope-option">
+              <input type="radio" name="exportQuality" value="7200" />
+              <span>超清<em>长边 7200</em></span>
+            </label>
+            <label class="scope-option">
+              <input type="radio" name="exportQuality" value="9600" />
+              <span>海报<em>长边 9600</em></span>
+            </label>
+            <label class="scope-option">
+              <input type="radio" name="exportQuality" value="16000" />
+              <span>超大<em>长边 16000</em></span>
+            </label>
+            <label class="scope-option">
+              <input type="radio" name="exportQuality" value="custom" />
+              <span>自定义<em>输入一边</em></span>
+            </label>
           </div>
+          <div class="export-custom-row" id="exportCustomRow" hidden>
+            <input
+              id="exportCustomEdge"
+              type="number"
+              min="2000"
+              max="16000"
+              step="100"
+              value="10000"
+              inputmode="numeric"
+              aria-label="自定义长边像素"
+            />
+            <span>px 长边</span>
+            <em>只输入长边，另一边按比例计算</em>
+          </div>
+          <p class="modal-note export-warning" id="exportEdgeWarning" hidden>
+            超过 9600px 会显著增加文件体积和导出时间，低配电脑可能导出失败。
+          </p>
         </div>
-        <label class="check-row">
-          <input type="checkbox" id="exportAllowUltra" />
-          <span>允许超过 9600px 分辨率</span>
-        </label>
-        <p class="modal-note export-warning" id="exportUltraWarning" hidden>
-          允许更高分辨率会显著增加文件体积和导出时间，低配电脑可能导出失败。
-        </p>
         <div class="field">
           <div class="label-row">
             <label class="label" for="exportBaseScale">底图缩放</label>
