@@ -294,6 +294,10 @@ const els = {
   exportCancel: $('#exportCancel'),
   exportConfirm: $('#exportConfirm'),
   exportHeader: $('#exportHeader'),
+  exportLongEdge: $('#exportLongEdge'),
+  exportLongEdgeValue: $('#exportLongEdgeValue'),
+  exportBaseScale: $('#exportBaseScale'),
+  exportBaseScaleValue: $('#exportBaseScaleValue'),
   exportSizeHint: $('#exportSizeHint'),
   updatedText: $('#updatedText'),
   syncModal: $('#syncModal'),
@@ -1152,12 +1156,9 @@ map.on('mouseleave', 'track-line', () => {
 /* Export                                                              */
 /* ------------------------------------------------------------------ */
 
-const EXPORT_QUALITIES = {
-  standard: 3000,
-  high: 4800,
-  ultra: 7200,
-  poster: 9600,
-};
+const EXPORT_MIN_EDGE = 2000;
+const EXPORT_MAX_EDGE = 9600;
+const EXPORT_DEFAULT_EDGE = 4800;
 const EXPORT_RATIOS = {
   '1:1': 1,
   '4:3': 4 / 3,
@@ -1171,6 +1172,12 @@ function checkedValue(name, fallback) {
   return document.querySelector(`input[name="${name}"]:checked`)?.value || fallback;
 }
 
+function clampExportEdge(value) {
+  const edge = Number(value);
+  if (!Number.isFinite(edge)) return EXPORT_DEFAULT_EDGE;
+  return Math.max(EXPORT_MIN_EDGE, Math.min(EXPORT_MAX_EDGE, Math.round(edge)));
+}
+
 function naturalMapRatio(features) {
   const bounds = boundsOf(features);
   if (!bounds) return 4 / 3;
@@ -1179,8 +1186,8 @@ function naturalMapRatio(features) {
   return width / height;
 }
 
-function computeExportLayout({ scope, ratioValue, qualityValue, withHeader, features }) {
-  const longEdge = EXPORT_QUALITIES[qualityValue] || EXPORT_QUALITIES.high;
+function computeExportLayout({ scope, ratioValue, longEdge, withHeader, features }) {
+  const edge = clampExportEdge(longEdge);
   let ratio = EXPORT_RATIOS[ratioValue];
   if (!ratio) {
     if (scope === 'view') {
@@ -1195,11 +1202,11 @@ function computeExportLayout({ scope, ratioValue, qualityValue, withHeader, feat
   let finalW;
   let finalH;
   if (ratio >= 1) {
-    finalW = longEdge;
-    finalH = Math.max(1, Math.round(longEdge / ratio));
+    finalW = edge;
+    finalH = Math.max(1, Math.round(edge / ratio));
   } else {
-    finalH = longEdge;
-    finalW = Math.max(1, Math.round(longEdge * ratio));
+    finalH = edge;
+    finalW = Math.max(1, Math.round(edge * ratio));
   }
 
   let capped = false;
@@ -1232,6 +1239,12 @@ function computeExportLayout({ scope, ratioValue, qualityValue, withHeader, feat
   };
 }
 
+function exportBaseScaleValue() {
+  const raw = Number(els.exportBaseScale?.value);
+  if (!Number.isFinite(raw)) return 1;
+  return Math.max(1, Math.min(2, Math.round(raw * 10) / 10));
+}
+
 function updateExportHint() {
   if (!els.exportSizeHint) return;
   const features = filteredFeaturesForDatum();
@@ -1241,18 +1254,21 @@ function updateExportHint() {
   }
   const scope = checkedValue('exportScope', 'all');
   const ratio = checkedValue('exportRatio', 'auto');
-  const quality = checkedValue('exportQuality', 'high');
+  const longEdge = clampExportEdge(els.exportLongEdge?.value);
+  const baseScale = exportBaseScaleValue();
+  if (els.exportLongEdgeValue) els.exportLongEdgeValue.textContent = `长边 ${longEdge} px`;
+  if (els.exportBaseScaleValue) els.exportBaseScaleValue.textContent = `${baseScale.toFixed(1)}×`;
   const layout = computeExportLayout({
     scope,
     ratioValue: ratio,
-    qualityValue: quality,
+    longEdge,
     withHeader: els.exportHeader.checked,
     features,
   });
   const ratioLabel = ratio === 'auto' ? '自动比例' : ratio;
   els.exportSizeHint.textContent =
     `${scope === 'all' ? '全部轨迹' : '当前视图'} · ${ratioLabel} · ` +
-    `约 ${layout.finalW} × ${layout.finalH} px` +
+    `约 ${layout.finalW} × ${layout.finalH} px · 底图 ${baseScale.toFixed(1)}×` +
     (layout.capped ? '（已限制在 6000 万像素内）' : '');
 }
 
@@ -1379,9 +1395,77 @@ function mercatorY(lat) {
   return Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
 }
 
-async function renderHiddenMap({ bounds, outW, outH, padding = 60, maxZoom = 14, lineScale = 1, features }) {
+function exportMercatorPoint(lng, lat) {
+  const point = maplibregl.MercatorCoordinate.fromLngLat([lng, lat]);
+  return { x: point.x, y: point.y };
+}
+
+function exportViewForBounds(bounds, outW, outH, padding, maxZoom) {
+  const sw = exportMercatorPoint(bounds[0][0], bounds[0][1]);
+  const ne = exportMercatorPoint(bounds[1][0], bounds[1][1]);
+  const width = Math.max(1e-12, Math.abs(ne.x - sw.x));
+  const height = Math.max(1e-12, Math.abs(ne.y - sw.y));
+  const availableW = Math.max(1, outW - padding * 2);
+  const availableH = Math.max(1, outH - padding * 2);
+  const zoom = Math.max(
+    0,
+    Math.min(
+      maxZoom,
+      Math.log2(availableW / (512 * width)),
+      Math.log2(availableH / (512 * height)),
+    ),
+  );
+  const center = new maplibregl.MercatorCoordinate(
+    (sw.x + ne.x) / 2,
+    (sw.y + ne.y) / 2,
+    0,
+  ).toLngLat();
+  return { center, zoom };
+}
+
+function waitForMapIdle(exportMap, timeout = 20000) {
+  return new Promise((resolve) => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      exportMap.off('idle', finish);
+      resolve();
+    };
+    const timer = setTimeout(finish, timeout);
+    exportMap.once('idle', finish);
+  });
+}
+
+const EXPORT_TILE_SIZE = 2048;
+
+async function renderHiddenMap({
+  bounds,
+  outW,
+  outH,
+  padding = 60,
+  maxZoom = 14,
+  lineScale = 1,
+  features,
+  baseScale = 1,
+  onProgress,
+}) {
+  const scale = Math.max(1, Math.min(2, Number(baseScale) || 1));
+  const view = exportViewForBounds(bounds, outW, outH, padding, maxZoom);
+  const fullWorld = 512 * 2 ** view.zoom;
+  const centerMc = maplibregl.MercatorCoordinate.fromLngLat([
+    view.center.lng,
+    view.center.lat,
+  ]);
+  const renderZoom = view.zoom + Math.log2(scale);
+  const renderTile = Math.max(1, Math.round(EXPORT_TILE_SIZE * scale));
+  const cols = Math.ceil(outW / EXPORT_TILE_SIZE);
+  const rows = Math.ceil(outH / EXPORT_TILE_SIZE);
+  const total = cols * rows;
+
   const holder = document.createElement('div');
-  holder.style.cssText = `position:fixed;left:-14000px;top:0;width:${outW}px;height:${outH}px;pointer-events:none;`;
+  holder.style.cssText = `position:fixed;left:-14000px;top:0;width:${renderTile}px;height:${renderTile}px;pointer-events:none;`;
   document.body.appendChild(holder);
 
   const exportMap = new maplibregl.Map({
@@ -1389,10 +1473,10 @@ async function renderHiddenMap({ bounds, outW, outH, padding = 60, maxZoom = 14,
     style: buildExportStyle(
       state.base,
       { type: 'FeatureCollection', features },
-      { lineScale },
+      { lineScale: lineScale * scale },
     ),
-    center: [0, 0],
-    zoom: 2,
+    center: view.center,
+    zoom: renderZoom,
     interactive: false,
     attributionControl: false,
     preserveDrawingBuffer: true,
@@ -1410,28 +1494,41 @@ async function renderHiddenMap({ bounds, outW, outH, padding = 60, maxZoom = 14,
       });
     });
 
-    exportMap.fitBounds(bounds, { padding, animate: false, maxZoom });
-    await new Promise((resolve) => {
-      let done = false;
-      const finish = () => {
-        if (done) return;
-        done = true;
-        resolve();
-      };
-      const timer = setTimeout(finish, 30000);
-      exportMap.once('idle', () => {
-        clearTimeout(timer);
-        finish();
-      });
-    });
-    await sleep(700);
-
-    const sourceCanvas = exportMap.getCanvas();
     const copy = document.createElement('canvas');
     copy.width = outW;
     copy.height = outH;
     const ctx = copy.getContext('2d');
-    ctx.drawImage(sourceCanvas, 0, 0, outW, outH);
+    ctx.imageSmoothingEnabled = scale > 1;
+    ctx.imageSmoothingQuality = 'high';
+
+    let rendered = 0;
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        const x = col * EXPORT_TILE_SIZE;
+        const y = row * EXPORT_TILE_SIZE;
+        const tw = Math.min(EXPORT_TILE_SIZE, outW - x);
+        const th = Math.min(EXPORT_TILE_SIZE, outH - y);
+        const dx = x + tw / 2 - outW / 2;
+        const dy = y + th / 2 - outH / 2;
+        const tileCenter = new maplibregl.MercatorCoordinate(
+          centerMc.x + dx / fullWorld,
+          centerMc.y + dy / fullWorld,
+          0,
+        ).toLngLat();
+
+        exportMap.jumpTo({ center: tileCenter, zoom: renderZoom });
+        await waitForMapIdle(exportMap);
+
+        const source = exportMap.getCanvas();
+        const sx = Math.max(0, (source.width - tw * scale) / 2);
+        const sy = Math.max(0, (source.height - th * scale) / 2);
+        ctx.drawImage(source, sx, sy, tw * scale, th * scale, x, y, tw, th);
+
+        rendered += 1;
+        onProgress?.(rendered, total);
+      }
+    }
+
     return copy;
   } finally {
     exportMap.remove();
@@ -1439,13 +1536,16 @@ async function renderHiddenMap({ bounds, outW, outH, padding = 60, maxZoom = 14,
   }
 }
 
-async function renderFullMap(features, { ratio = 'auto', quality = 'high', withHeader = true } = {}) {
+async function renderFullMap(
+  features,
+  { ratio = 'auto', longEdge, baseScale = 1, withHeader = true, onProgress } = {},
+) {
   const bounds = boundsOf(features);
   if (!bounds) throw new Error('当前没有轨迹可以导出');
   const layout = computeExportLayout({
     scope: 'all',
     ratioValue: ratio,
-    qualityValue: quality,
+    longEdge,
     withHeader,
     features,
   });
@@ -1459,17 +1559,22 @@ async function renderFullMap(features, { ratio = 'auto', quality = 'high', withH
     lineScale:
       Math.max(1.2, Math.max(layout.mapW, layout.mapH) / 1800) * (state.widthScale || 1),
     features,
+    baseScale,
+    onProgress,
   });
 }
 
-async function renderViewMap(features, { ratio = 'auto', quality = 'high', withHeader = true } = {}) {
+async function renderViewMap(
+  features,
+  { ratio = 'auto', longEdge, baseScale = 1, withHeader = true, onProgress } = {},
+) {
   const container = map.getContainer();
   const cw = Math.max(1, container.clientWidth);
   const ch = Math.max(1, container.clientHeight);
   const layout = computeExportLayout({
     scope: 'view',
     ratioValue: ratio,
-    qualityValue: quality,
+    longEdge,
     withHeader,
     features,
   });
@@ -1481,6 +1586,8 @@ async function renderViewMap(features, { ratio = 'auto', quality = 'high', withH
     maxZoom: 18,
     lineScale: Math.max(1, layout.mapW / cw, layout.mapH / ch) * (state.widthScale || 1),
     features,
+    baseScale,
+    onProgress,
   });
 }
 
@@ -1602,7 +1709,8 @@ async function doExport() {
   if (state.exportBusy) return;
   const scope = checkedValue('exportScope', 'all');
   const ratio = checkedValue('exportRatio', 'auto');
-  const quality = checkedValue('exportQuality', 'high');
+  const longEdge = clampExportEdge(els.exportLongEdge?.value);
+  const baseScale = exportBaseScaleValue();
   const withHeader = els.exportHeader.checked;
   const features = filteredFeaturesForDatum();
   if (!features.length) {
@@ -1612,7 +1720,7 @@ async function doExport() {
   const layout = computeExportLayout({
     scope,
     ratioValue: ratio,
-    qualityValue: quality,
+    longEdge,
     withHeader,
     features,
   });
@@ -1622,13 +1730,29 @@ async function doExport() {
   els.exportConfirm.textContent = '生成中…';
   els.exportBtn.disabled = true;
 
+  const onProgress = (done, total) => {
+    if (state.exportBusy) els.exportConfirm.textContent = `正在绘制 ${done}/${total}…`;
+  };
+
   try {
     let mapCanvas;
     if (scope === 'all') {
       els.exportConfirm.textContent = '正在绘制…';
-      mapCanvas = await renderFullMap(features, { ratio, quality, withHeader });
+      mapCanvas = await renderFullMap(features, {
+        ratio,
+        longEdge,
+        baseScale,
+        withHeader,
+        onProgress,
+      });
     } else {
-      mapCanvas = await renderViewMap(features, { ratio, quality, withHeader });
+      mapCanvas = await renderViewMap(features, {
+        ratio,
+        longEdge,
+        baseScale,
+        withHeader,
+        onProgress,
+      });
     }
     const output = composeImage(mapCanvas, { withHeader, features, layout });
     if (DEBUG) {
@@ -1638,7 +1762,8 @@ async function doExport() {
         height: output.height,
         scope,
         ratio,
-        quality,
+        longEdge,
+        baseScale,
         expected: [layout.finalW, layout.finalH],
         features: features.length,
       };
@@ -2068,8 +2193,9 @@ els.exportClose.addEventListener('click', closeExport);
 els.exportCancel.addEventListener('click', closeExport);
 els.exportConfirm.addEventListener('click', doExport);
 $$(
-  'input[name="exportScope"], input[name="exportRatio"], input[name="exportQuality"], #exportHeader',
+  'input[name="exportScope"], input[name="exportRatio"], #exportHeader, #exportLongEdge, #exportBaseScale',
 ).forEach((input) => {
+  input.addEventListener('input', updateExportHint);
   input.addEventListener('change', updateExportHint);
 });
 els.importBtn.addEventListener('click', openImportPicker);
